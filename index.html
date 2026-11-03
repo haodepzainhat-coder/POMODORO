@@ -1097,20 +1097,25 @@ function doPost(e) {
     }
 
     function setTimerMode(mode, autoStart = false) {
-      if (timerState.mode === mode) return;
+      // 1. Lưu lại thời gian còn lại của chế độ cũ nếu thời gian đó còn hợp lệ (> 0)
+      if (timerState.mode !== mode && timerState.timeLeft > 0) {
+        modeRemainingTimes[timerState.mode] = timerState.timeLeft;
+      }
 
-      // 1. Lưu chính xác thời gian còn lại của chế độ cũ trước khi rời khỏi
-      modeRemainingTimes[timerState.mode] = timerState.timeLeft;
-
-      // 2. Dừng ngay interval đang chạy để không tự động đếm giờ
+      // 2. Dừng ngay interval cũ để tránh bị đếm đúp hoặc kẹt vòng lặp
       if (timerState.intervalId) {
         clearInterval(timerState.intervalId);
         timerState.intervalId = null;
       }
       timerState.isRunning = false;
 
-      // 3. Chuyển sang chế độ mới và lấy lại thời gian độc lập của chế độ đó
+      // 3. Chuyển sang chế độ mới
       timerState.mode = mode;
+      
+      // Đảm bảo thời gian hợp lệ, nếu thời gian lưu đang <= 0 thì lấy theo cài đặt
+      if (!modeRemainingTimes[mode] || modeRemainingTimes[mode] <= 0) {
+        modeRemainingTimes[mode] = timerSettings[mode] * 60;
+      }
       timerState.timeLeft = modeRemainingTimes[mode];
       timerState.totalDuration = timerSettings[mode] * 60;
 
@@ -1143,7 +1148,7 @@ function doPost(e) {
 
       updateTimerDisplay();
 
-      // Chỉ tự chạy nếu được gọi từ hệ thống hết giờ có cờ autoStart (khi bật Lặp lại liên tục)
+      // Chỉ tự chạy nếu được kích hoạt cờ autoStart (khi bật Lặp lại liên tục)
       if (autoStart) {
         timerState.isRunning = true;
         timerState.intervalId = setInterval(tick, 1000);
@@ -1203,18 +1208,22 @@ function doPost(e) {
 
         updateTimerDisplay();
       } else {
-        clearInterval(timerState.intervalId);
+        // Dừng ngay interval để ngắt hoàn toàn chuỗi tick
+        if (timerState.intervalId) {
+          clearInterval(timerState.intervalId);
+          timerState.intervalId = null;
+        }
         timerState.isRunning = false;
+        
         playBellNotification();
         handleTimerComplete();
-        updateTimerControls();
       }
     }
 
     function handleTimerComplete() {
       if (timerState.mode === 'focus') {
         timerState.sessionsCompleted++;
-        showToast('🎉 Tuyệt vời! Bạn vừa hoàn thành một hiệp tập trung!');
+        showToast('🎉 Hoàn thành hiệp tập trung! Chuyển sang giờ nghỉ');
 
         if (timerState.activeTaskId) {
           const task = tasks.find(t => t.id === timerState.activeTaskId);
@@ -1232,15 +1241,20 @@ function doPost(e) {
         
         saveData(); // Lưu thống kê sau khi xong hiệp
 
-        // Đặt lại thời gian hiệp tập trung cho lượt kế tiếp
+        // Đặt lại thời gian sẵn sàng cho cả hai chế độ
         modeRemainingTimes.focus = timerSettings.focus * 60;
-        // Chuyển sang Nghỉ ngơi. Nếu có bật lặp lại thì tự động chạy tiếp
+        modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
+
+        // Chuyển sang Nghỉ ngơi: Nếu bật lặp lại thì autoStart=true, không bật thì autoStart=false (dừng sẵn ở 05:00)
         setTimerMode('shortBreak', isAutoRepeatEnabled);
       } else {
-        showToast('Hết giờ nghỉ ngơi! Bắt đầu hiệp tập trung mới 💪');
-        // Đặt lại thời gian hiệp nghỉ cho lượt kế tiếp
+        showToast('☕ Hết giờ nghỉ ngơi! Sẵn sàng cho hiệp tập trung mới');
+
+        // Đặt lại thời gian sẵn sàng cho cả hai chế độ
         modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
-        // Chuyển sang Tập trung. Nếu có bật lặp lại thì tự động chạy tiếp
+        modeRemainingTimes.focus = timerSettings.focus * 60;
+
+        // Chuyển sang Tập trung: Nếu bật lặp lại thì autoStart=true, không bật thì autoStart=false (dừng sẵn ở 25:00)
         setTimerMode('focus', isAutoRepeatEnabled);
       }
     }
