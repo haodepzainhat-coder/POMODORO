@@ -1,0 +1,2229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyFlow - Đồng Hồ Pomodoro & Kế Hoạch Mục Tiêu</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts & Phosphor Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Tone.js for Audio Bell without external audio files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <!-- Canvas Confetti for task completion celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            pomo: {
+              focus: '#ef4444',
+              short: '#06b6d4',
+              long: '#8b5cf6',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.6);
+    }
+    
+    /* Radial Timer Glow Animation */
+    .timer-ring-circle {
+      transition: stroke-dashoffset 0.8s ease-in-out, stroke 0.4s ease;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* Animation mượt mà cho trang web */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes popBounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes softPulseGlow {
+      0%, 100% {
+        filter: drop-shadow(0 0 10px rgba(244, 63, 94, 0.25));
+      }
+      50% {
+        filter: drop-shadow(0 0 24px rgba(244, 63, 94, 0.55));
+      }
+    }
+
+    .animate-fade-in {
+      animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-pop {
+      animation: popBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .timer-glow-active {
+      animation: softPulseGlow 3s ease-in-out infinite;
+    }
+
+    /* CSS Fallback Fullscreen khi iframe bị chặn Fullscreen API */
+    .simulated-fullscreen {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: 100vw !important;
+      z-index: 99999 !important;
+      overflow-y: auto !important;
+      background-color: inherit;
+    }
+
+    /* Chế độ Thu Nhỏ (Mini Floating Player) */
+    body.mini-mode {
+      overflow: hidden !important;
+    }
+    body.mini-mode header,
+    body.mini-mode main > section:not(#tab-dashboard),
+    body.mini-mode #tab-dashboard > div.lg\:col-span-7,
+    body.mini-mode #tab-dashboard > div.lg\:col-span-5 > div:not(:first-child) {
+      display: none !important;
+    }
+    body.mini-mode main {
+      padding: 0 !important;
+      max-width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(8px);
+    }
+    body.mini-mode #tab-dashboard {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    body.mini-mode #tab-dashboard > div.lg\:col-span-5 {
+      width: 100% !important;
+      max-width: 340px !important;
+    }
+    body.mini-mode #timer-card-box {
+      border-radius: 2rem !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+      padding: 1.25rem !important;
+    }
+    body.mini-mode #timer-card-box .stat-summary-row {
+      display: none !important;
+    }
+    body.mini-mode #timer-svg-container {
+      width: 180px !important;
+      height: 180px !important;
+      margin: 0.25rem 0 !important;
+    }
+    body.mini-mode #timer-display {
+      font-size: 2.25rem !important;
+      line-height: 2.5rem !important;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-rose-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+          <i class="ph-bold ph-hourglass-high text-xl"></i>
+        </div>
+        <div>
+          <span class="font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-indigo-600 to-rose-500 bg-clip-text text-transparent">
+            StudyFlow
+          </span>
+          <span class="text-[10px] hidden sm:inline-block ml-1.5 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-semibold uppercase tracking-wider">
+            Pomodoro & Goals
+          </span>
+        </div>
+      </div>
+
+      <!-- Utility Options: Mini mode, Dark mode, Fullscreen -->
+      <div class="flex items-center gap-2">
+        <!-- Nút Trạng Thái & Cài Đặt Google Sheets -->
+        <button id="sheets-sync-btn" onclick="openSheetModal()" title="Cài đặt lưu trữ Google Sheet" class="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <span id="sheet-status-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+          <i class="ph-bold ph-table text-emerald-600 dark:text-emerald-400 text-base"></i>
+          <span id="sheet-btn-label" class="hidden sm:inline">Google Sheet</span>
+        </button>
+
+        <!-- Nút Thu Nhỏ Đồng Hồ (Mini Player Mode) duy nhất -->
+        <button onclick="toggleMiniMode()" title="Chế độ thu nhỏ chỉ xem đồng hồ" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300 flex items-center justify-center hover:text-indigo-600 dark:hover:text-indigo-400">
+          <i class="ph-bold ph-picture-in-picture text-lg"></i>
+        </button>
+
+        <!-- Fullscreen Toggle Button -->
+        <button id="fullscreen-btn" onclick="toggleFullScreen()" title="Phóng to toàn màn hình" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300 flex items-center justify-center">
+          <i id="fullscreen-icon" class="ph-bold ph-corners-out text-lg"></i>
+        </button>
+        <!-- Dark Mode Toggle -->
+        <button onclick="toggleDarkMode()" title="Chuyển chế độ sáng/tối" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300 flex items-center justify-center">
+          <i id="theme-icon" class="ph-bold ph-moon text-lg"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- ==================== POMOTODO & GOALS ==================== -->
+    <section id="tab-dashboard" class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+      
+      <!-- LEFT COLUMN: POMODORO CLOCK (5 Cols) -->
+      <div class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Timer Card -->
+        <div id="timer-card-box" class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col items-center relative overflow-hidden transition-all duration-300">
+          
+          <!-- Nút quay lại trang web nhanh (chỉ hiển thị khi ở chế độ Thu Nhỏ) -->
+          <div id="mini-mode-bar" class="w-full flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-slate-800 hidden">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <i class="ph-fill ph-hourglass-high text-indigo-500"></i> Mini Đồng Hồ
+            </span>
+            <button onclick="toggleMiniMode()" class="px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-xs font-bold transition flex items-center gap-1.5 shadow-xs">
+              <i class="ph-bold ph-arrow-u-up-left"></i> Quay lại trang web
+            </button>
+          </div>
+
+          <!-- Mode Tabs (Chỉ còn Tập trung và Nghỉ ngơi - Bỏ nghỉ dài) -->
+          <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl w-full max-w-xs mb-4 sm:mb-6 text-xs sm:text-sm font-medium">
+            <button onclick="setTimerMode('focus')" id="mode-focus" class="flex-1 py-1.5 rounded-xl text-center font-semibold transition-all bg-white dark:bg-slate-700 shadow-sm text-rose-500">
+              Tập trung
+            </button>
+            <button onclick="setTimerMode('shortBreak')" id="mode-short" class="flex-1 py-1.5 rounded-xl text-center text-slate-500 dark:text-slate-400 transition-all hover:text-slate-800 dark:hover:text-white">
+              Nghỉ ngơi
+            </button>
+          </div>
+
+          <!-- Circular SVG Countdown Ring -->
+          <div id="timer-svg-container" class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center my-2 transition-all">
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 240 240">
+              <!-- Background track -->
+              <circle cx="120" cy="120" r="102" stroke="currentColor" stroke-width="12" fill="transparent" class="text-slate-100 dark:text-slate-800" />
+              <!-- Animated Progress track -->
+              <circle id="timer-progress" cx="120" cy="120" r="102" stroke="currentColor" stroke-width="12" stroke-linecap="round" fill="transparent"
+                stroke-dasharray="640.88" stroke-dashoffset="0"
+                class="timer-ring-circle text-rose-500" />
+            </svg>
+
+            <!-- Center Clock Display -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
+              <span id="timer-display" class="font-mono text-5xl sm:text-6xl font-bold tracking-tight text-slate-900 dark:text-white">
+                25:00
+              </span>
+              <span id="timer-task-hint" class="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-2 max-w-[200px] truncate font-medium">
+                Sẵn sàng bắt đầu
+              </span>
+            </div>
+          </div>
+
+          <!-- Hidden Canvas for Fallback Mode -->
+          <canvas id="pip-canvas" width="512" height="512" class="hidden"></canvas>
+          <video id="pip-video" class="hidden" playsinline muted autoplay></video>
+
+          <!-- Active Linked Task Badge -->
+          <div id="linked-task-container" class="w-full mt-2 mb-4 hidden">
+            <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl px-4 py-2 flex items-center justify-between text-xs sm:text-sm">
+              <div class="flex items-center gap-2 truncate">
+                <i class="ph-fill ph-target text-indigo-600 dark:text-indigo-400"></i>
+                <span class="text-slate-500 dark:text-slate-400">Đang làm:</span>
+                <span id="linked-task-title" class="font-semibold text-indigo-700 dark:text-indigo-300 truncate"></span>
+              </div>
+              <button onclick="unlinkActiveTask()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-2">
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Timer Controls (Đã bỏ nút tua qua hiệp) -->
+          <div class="flex items-center gap-4 mt-2">
+            <button onclick="resetTimer()" title="Đặt lại" class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all">
+              <i class="ph-bold ph-arrow-counter-clockwise text-xl"></i>
+            </button>
+
+            <button id="timer-toggle-btn" onclick="toggleTimer()" class="px-8 py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-lg shadow-lg shadow-rose-500/30 active:scale-95 transition-all flex items-center gap-2">
+              <i id="timer-play-icon" class="ph-fill ph-play text-xl"></i>
+              <span id="timer-btn-text">Bắt Đầu</span>
+            </button>
+          </div>
+
+          <!-- Quick Stats Summary -->
+          <div class="stat-summary-row grid grid-cols-3 w-full gap-2 border-t border-slate-100 dark:border-slate-800/80 mt-6 pt-5 text-center">
+            <div>
+              <p class="text-xs text-slate-400 uppercase font-semibold">Hiệp xong</p>
+              <p id="stat-pomo-count" class="text-lg font-bold text-slate-800 dark:text-slate-100 mt-0.5">0</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 uppercase font-semibold">Thời gian</p>
+              <p id="stat-total-minutes" class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">0 phút</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 uppercase font-semibold">Nhiệm vụ xong</p>
+              <p id="stat-tasks-done" class="text-lg font-bold text-emerald-500 mt-0.5">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Thiết lập thời gian tập trung, nghỉ ngơi & Nút lặp lại tự động -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
+              <i class="ph-bold ph-sliders text-indigo-500"></i> Thiết lập thời gian
+            </h3>
+            <span class="text-xs text-slate-400">Tự động lưu</span>
+          </div>
+
+          <!-- Nhập thời gian Tập trung và Nghỉ ngơi -->
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+              <label class="text-xs font-semibold text-rose-500 block mb-1">⏱️ Tập trung (phút)</label>
+              <input type="number" id="cfg-focus" min="1" max="180" value="25" onchange="updateCustomTimes()" class="w-full text-center bg-transparent font-bold text-lg text-slate-800 dark:text-white outline-none">
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+              <label class="text-xs font-semibold text-cyan-500 block mb-1">☕ Nghỉ ngơi (phút)</label>
+              <input type="number" id="cfg-short" min="1" max="60" value="5" onchange="updateCustomTimes()" class="w-full text-center bg-transparent font-bold text-lg text-slate-800 dark:text-white outline-none">
+            </div>
+          </div>
+
+          <!-- Tùy chọn Âm thanh Thông báo & Nút nghe thử -->
+          <div class="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <i class="ph-bold ph-bell-simple-ringing text-base"></i>
+                </div>
+                <div class="truncate">
+                  <p class="text-xs font-bold text-slate-800 dark:text-slate-200">Âm báo hết giờ</p>
+                  <p class="text-[11px] text-slate-400 truncate">Chọn chuông thông báo</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <select id="cfg-sound" onchange="changeSoundType()" class="bg-white dark:bg-slate-700 text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 font-semibold text-slate-800 dark:text-white outline-none">
+                  <option value="chime">🔔 Chuông Trong Trẻo</option>
+                  <option value="digital">📟 Tiếng Bíp Kỹ Thuật Số</option>
+                  <option value="zen">🧘 Chuông Zen Trầm Ấm</option>
+                  <option value="fanfare">🎉 Hợp Âm Khải Hoàn</option>
+                  <option value="wood">🪵 Gõ Mộc Tinh Tế</option>
+                </select>
+                <button onclick="previewSelectedSound()" title="Nghe thử âm thanh" class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition flex items-center justify-center">
+                  <i class="ph-bold ph-speaker-high text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Volume Slider in Settings -->
+            <div class="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/60 text-xs">
+              <span class="text-slate-400 text-[11px] flex items-center gap-1.5 font-medium">
+                <i class="ph-bold ph-faders text-slate-500"></i> Âm lượng:
+              </span>
+              <div class="flex items-center gap-2">
+                <input type="range" id="settings-volume-slider" min="0" max="100" value="80" oninput="onVolumeChange(this.value)" class="w-28 sm:w-36 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                <span id="settings-vol-pct" class="font-mono text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 w-8 text-right">80%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nút kích hoạt chế độ Lặp lại tự động (Auto Loop) -->
+          <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <i class="ph-bold ph-repeat text-base"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-800 dark:text-slate-200">Lặp lại liên tục</p>
+                <p class="text-[11px] text-slate-400">Hết tập trung tự nghỉ, hết nghỉ tự tập trung</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="auto-repeat-toggle" onchange="toggleAutoRepeat()" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: STUDY GOALS & TASKS (THEO TUẦN VÀ THỨ) (7 Cols) -->
+      <div class="lg:col-span-7 flex flex-col gap-6">
+
+        <!-- Goals Header & Progress Overview -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <span>Kế Hoạch & Mục Tiêu</span>
+                <span class="text-xl">🎯</span>
+              </h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Lên kế hoạch theo tuần & các thứ, có mục tiêu con lồng ghép</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="clearCompletedTasks()" class="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition flex items-center gap-1">
+                <i class="ph-bold ph-trash"></i> Xoá đã xong
+              </button>
+            </div>
+          </div>
+
+          <!-- LỌC THEO TUẦN VÀ THỨ (Bỏ hoàn toàn ngày tháng năm) -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 mb-5">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <i class="ph-bold ph-calendar text-indigo-500"></i> Tuần:
+              </span>
+              <select id="filter-week" onchange="onWeekDayFilterChange()" class="bg-white dark:bg-slate-700 text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 font-bold text-slate-800 dark:text-white outline-none">
+                <!-- Tuần 1 -> 52 -->
+              </select>
+            </div>
+
+            <!-- Các nút chọn Thứ trong tuần -->
+            <div class="flex items-center gap-1 overflow-x-auto text-xs font-medium pb-1">
+              <button onclick="setFilterDayOfWeek('all')" id="btn-day-all" class="day-filter-btn px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs">Cả tuần</button>
+              <button onclick="setFilterDayOfWeek('T2')" id="btn-day-T2" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Thứ 2</button>
+              <button onclick="setFilterDayOfWeek('T3')" id="btn-day-T3" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Thứ 3</button>
+              <button onclick="setFilterDayOfWeek('T4')" id="btn-day-T4" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Thứ 4</button>
+              <button onclick="setFilterDayOfWeek('T5')" id="btn-day-T5" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Thứ 5</button>
+              <button onclick="setFilterDayOfWeek('T6')" id="btn-day-T6" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Thứ 6</button>
+              <button onclick="setFilterDayOfWeek('T7')" id="btn-day-T7" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Thứ 7</button>
+              <button onclick="setFilterDayOfWeek('CN')" id="btn-day-CN" class="day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Chủ Nhật</button>
+            </div>
+          </div>
+
+          <!-- Progress Bar of Goals -->
+          <div class="mb-6 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center text-xs font-semibold mb-2">
+              <span class="text-slate-600 dark:text-slate-300">Tiến độ: <span id="progress-date-label" class="font-bold text-slate-900 dark:text-white">Tuần hiện tại</span></span>
+              <span id="goal-progress-percent" class="text-indigo-600 dark:text-indigo-400 font-bold">0%</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div id="goal-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-500 w-0"></div>
+            </div>
+          </div>
+
+          <!-- Add New Task Input Box (Ghi theo Tuần & Thứ) -->
+          <form onsubmit="addTask(event)" class="flex flex-col sm:flex-row gap-2.5 mb-6">
+            <div class="flex-1 relative">
+              <i class="ph ph-plus-circle absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+              <input type="text" id="new-task-title" required placeholder="Thêm mục tiêu lớn mới..."
+                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-white placeholder-slate-400">
+            </div>
+
+            <!-- Chọn Tuần và Thứ khi tạo mục tiêu -->
+            <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 px-2.5 py-1.5 rounded-xl">
+              <select id="new-task-week" class="bg-white dark:bg-slate-700 text-xs px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 outline-none font-semibold"></select>
+              <select id="new-task-day-of-week" class="bg-white dark:bg-slate-700 text-xs px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 outline-none font-semibold">
+                <option value="T2">Thứ 2</option>
+                <option value="T3">Thứ 3</option>
+                <option value="T4">Thứ 4</option>
+                <option value="T5">Thứ 5</option>
+                <option value="T6">Thứ 6</option>
+                <option value="T7">Thứ 7</option>
+                <option value="CN">Chủ Nhật</option>
+              </select>
+            </div>
+
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 active:scale-95 shrink-0">
+              <i class="ph-bold ph-plus"></i>
+              <span>Thêm</span>
+            </button>
+          </form>
+
+          <!-- Filter status (All, Pending, Completed) -->
+          <div class="flex items-center gap-2 overflow-x-auto pb-2 mb-3 text-xs">
+            <button onclick="filterTasks('all')" class="task-filter-btn px-3 py-1 rounded-lg font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300" data-filter="all">Tất cả trạng thái</button>
+            <button onclick="filterTasks('pending')" class="task-filter-btn px-3 py-1 rounded-lg font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-filter="pending">Chưa xong</button>
+            <button onclick="filterTasks('completed')" class="task-filter-btn px-3 py-1 rounded-lg font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-filter="completed">Đã xong</button>
+          </div>
+
+          <!-- Task List Container -->
+          <div id="tasks-list" class="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+            <!-- Rendered by JavaScript -->
+          </div>
+
+          <!-- Empty State -->
+          <div id="tasks-empty-state" class="hidden text-center py-12">
+            <i class="ph-light ph-calendar-check text-5xl text-slate-300 dark:text-slate-600 mb-2 inline-block"></i>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Không có mục tiêu nào trong khoảng thời gian này!</p>
+            <p class="text-xs text-slate-400 mt-1">Hãy tạo mục tiêu mới ở trên để lên kế hoạch trước.</p>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notification Banner / Modal -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none text-sm font-medium">
+    <i id="toast-icon" class="ph-bold ph-bell text-indigo-400 dark:text-indigo-600 text-lg"></i>
+    <span id="toast-msg">Thông báo</span>
+  </div>
+
+  <!-- MODAL CẤU HÌNH & KẾT NỐI GOOGLE SHEETS -->
+  <div id="sheet-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <i class="ph-bold ph-file-spreadsheet text-xl"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Lưu Trữ Bằng Google Sheets</h3>
+            <p class="text-xs text-slate-400">Dữ liệu được lưu thẳng vào trang tính của bạn</p>
+          </div>
+        </div>
+        <button onclick="closeSheetModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div>
+          <label class="block font-bold mb-1 text-slate-800 dark:text-slate-200">URL Web App Google Apps Script:</label>
+          <input type="url" id="sheet-webapp-input" placeholder="https://script.google.com/macros/s/.../exec"
+            class="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+          <p class="text-[11px] text-slate-400 mt-1">Dán link triển khai Web App từ Google Sheets của bạn vào đây (hoặc dán trực tiếp vào biến <code class="font-bold text-emerald-600 dark:text-emerald-400">GOOGLE_SHEET_WEBAPP_URL</code> trong mã nguồn).</p>
+        </div>
+
+        <!-- Hướng dẫn 3 bước nhanh -->
+        <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+          <p class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 text-xs">
+            <i class="ph-bold ph-info text-emerald-500"></i> Cách tạo mã trong Google Sheets (chỉ 1 phút):
+          </p>
+          <ol class="list-decimal list-inside space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <li>Tạo 1 file Google Sheets mới trên Google Drive của bạn.</li>
+            <li>Vào menu <b>Tiện ích mở rộng (Extensions)</b> ➔ <b>Apps Script</b>.</li>
+            <li>Xoá hết code cũ, dán đoạn mã bên dưới vào và nhấn <b>Lưu</b> (Ctrl+S).</li>
+            <li>Nhấn nút <b>Triển khai (Deploy)</b> ➔ <b>Tùy chọn triển khai mới (New deployment)</b>.</li>
+            <li>Chọn loại <b>Web app</b>, mục <i>Who has access (Ai có quyền truy cập)</i> chọn <b>Anyone (Bất kỳ ai)</b>, rồi nhấn Deploy và sao chép URL dán vào đây!</li>
+          </ol>
+        </div>
+
+        <!-- Code Apps Script để copy -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Đoạn mã Google Apps Script cần dán:</span>
+            <button onclick="copyAppsScriptCode()" class="text-emerald-600 dark:text-emerald-400 hover:underline font-bold text-[11px] flex items-center gap-1">
+              <i class="ph-bold ph-copy"></i> Sao chép mã
+            </button>
+          </div>
+          <textarea id="apps-script-code" readonly rows="6" class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 font-mono text-[10px] outline-none select-all">function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = JSON.parse(e.postData.contents);
+    sheet.getRange(1, 1).setValue(JSON.stringify(data));
+    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", error: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var content = sheet.getRange(1, 1).getValue();
+    var data = content ? JSON.parse(content) : {};
+    return ContentService.createTextOutput(JSON.stringify(data))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button onclick="syncDataFromSheet()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition flex items-center gap-1.5">
+          <i class="ph-bold ph-arrows-clockwise"></i> Tải lại từ Sheet
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="saveSheetConfig()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center gap-1.5">
+            <i class="ph-bold ph-floppy-disk"></i> Lưu & Đồng bộ ngay
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT LOGIC -->
+  <script>
+    /* ====================================================================
+     * STATE MANAGEMENT (In-memory reactive state with auto-backup)
+     * ==================================================================== */
+    
+    // GẮN THẲNG URL GOOGLE SHEET WEB APP VÀO MÃ NGUỒN TẠI ĐÂY NẾU MUỐN:
+    let GOOGLE_SHEET_WEBAPP_URL = ""; 
+
+    // Timer Defaults & State (Chỉ còn focus và shortBreak, có autoRepeat)
+    const timerSettings = {
+      focus: 25,
+      shortBreak: 5
+    };
+
+    let isAutoRepeatEnabled = false;
+
+    // Lưu riêng thời gian còn lại của từng chế độ để không bị reset khi chuyển đổi
+    let modeRemainingTimes = {
+      focus: timerSettings.focus * 60,
+      shortBreak: timerSettings.shortBreak * 60
+    };
+
+    let timerState = {
+      mode: 'focus', // 'focus' | 'shortBreak'
+      timeLeft: timerSettings.focus * 60,
+      totalDuration: timerSettings.focus * 60,
+      isRunning: false,
+      intervalId: null,
+      activeTaskId: null,
+      sessionsCompleted: 0,
+      totalFocusMinutes: 0
+    };
+
+    // Tính tuần hiện tại trong năm (1 -> 52) và thứ hiện tại (T2 -> CN)
+    function getCurrentWeekNumber() {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+      const week1 = new Date(date.getFullYear(), 0, 4);
+      return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    }
+
+    function getCurrentDayOfWeekCode() {
+      const day = new Date().getDay();
+      const map = { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 0: 'CN' };
+      return map[day];
+    }
+
+    const currentWeekNum = getCurrentWeekNumber();
+    const currentDayCode = getCurrentDayOfWeekCode();
+
+    // Mặc định chọn đúng tuần hiện tại và đúng THỨ HÔM NAY theo thời gian thực
+    let selectedFilterWeek = currentWeekNum;
+    let selectedFilterDayOfWeek = currentDayCode;
+
+    /* ====================================================================
+     * GOOGLE SHEETS CLOUD STORAGE (ĐỒNG BỘ VÀ LƯU TRỮ TRÊN GOOGLE SHEETS)
+     * ==================================================================== */
+    let isSheetSyncing = false;
+    let sheetDebounceTimer = null;
+
+    function updateSheetStatusUI(status) {
+      const dot = document.getElementById('sheet-status-dot');
+      const label = document.getElementById('sheet-btn-label');
+      if (!dot) return;
+
+      if (status === 'syncing') {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        if (label) label.innerText = 'Đang lưu Sheet...';
+      } else if (status === 'connected') {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50';
+        if (label) label.innerText = 'Google Sheet';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+        if (label) label.innerText = 'Google Sheet';
+      }
+    }
+
+    async function pushDataToGoogleSheet() {
+      const url = GOOGLE_SHEET_WEBAPP_URL.trim();
+      if (!url) return;
+
+      updateSheetStatusUI('syncing');
+      isSheetSyncing = true;
+
+      const payload = {
+        tasks: tasks,
+        timerSettings: timerSettings,
+        stats: {
+          sessionsCompleted: timerState.sessionsCompleted,
+          totalFocusMinutes: timerState.totalFocusMinutes
+        },
+        settings: {
+          selectedSoundType,
+          currentVolume,
+          isAutoRepeatEnabled
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      try {
+        await fetch(url, {
+          method: 'POST',
+          mode: 'no-cors', // Tránh CORS từ Google Apps Script
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        updateSheetStatusUI('connected');
+      } catch (err) {
+        console.warn('Lỗi khi đẩy dữ liệu lên Google Sheet:', err);
+        updateSheetStatusUI('disconnected');
+      } finally {
+        isSheetSyncing = false;
+      }
+    }
+
+    async function syncDataFromSheet() {
+      const url = GOOGLE_SHEET_WEBAPP_URL.trim();
+      if (!url) {
+        showToast('Vui lòng nhập link Web App Google Sheet trước!');
+        return;
+      }
+
+      updateSheetStatusUI('syncing');
+      showToast('Đang tải dữ liệu từ Google Sheet...');
+
+      try {
+        const res = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+        const data = await res.json();
+
+        if (data && data.tasks) {
+          tasks = data.tasks;
+          if (data.timerSettings) {
+            timerSettings.focus = data.timerSettings.focus || 25;
+            timerSettings.shortBreak = data.timerSettings.shortBreak || 5;
+          }
+          if (data.stats) {
+            timerState.sessionsCompleted = data.stats.sessionsCompleted || 0;
+            timerState.totalFocusMinutes = data.stats.totalFocusMinutes || 0;
+          }
+          if (data.settings) {
+            selectedSoundType = data.settings.selectedSoundType || 'chime';
+            currentVolume = data.settings.currentVolume !== undefined ? data.settings.currentVolume : 0.8;
+            isAutoRepeatEnabled = data.settings.isAutoRepeatEnabled || false;
+          }
+
+          // Cập nhật lại UI sau khi tải từ Sheet về
+          document.getElementById('cfg-focus').value = timerSettings.focus;
+          document.getElementById('cfg-short').value = timerSettings.shortBreak;
+          document.getElementById('cfg-sound').value = selectedSoundType;
+          document.getElementById('auto-repeat-toggle').checked = isAutoRepeatEnabled;
+          document.getElementById('settings-volume-slider').value = Math.round(currentVolume * 100);
+          document.getElementById('settings-vol-pct').innerText = `${Math.round(currentVolume * 100)}%`;
+
+          saveLocalBackup();
+          renderTasks();
+          updateStatsDisplay();
+          updateSheetStatusUI('connected');
+          showToast('✅ Đã đồng bộ thành công dữ liệu từ Google Sheet!');
+          closeSheetModal();
+        } else {
+          showToast('Trang tính còn trống. Đang chuẩn bị dữ liệu đầu tiên...');
+          pushDataToGoogleSheet();
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải từ Google Sheet:', err);
+        showToast('Không thể tải từ Google Sheet (kiểm tra lại quyền Anyone)');
+        updateSheetStatusUI('disconnected');
+      }
+    }
+
+    function openSheetModal() {
+      document.getElementById('sheet-webapp-input').value = GOOGLE_SHEET_WEBAPP_URL;
+      document.getElementById('sheet-modal').classList.remove('hidden');
+    }
+
+    function closeSheetModal() {
+      document.getElementById('sheet-modal').classList.add('hidden');
+    }
+
+    function saveSheetConfig() {
+      const input = document.getElementById('sheet-webapp-input');
+      GOOGLE_SHEET_WEBAPP_URL = input.value.trim();
+      localStorage.setItem('studyflow_sheet_url', GOOGLE_SHEET_WEBAPP_URL);
+
+      if (GOOGLE_SHEET_WEBAPP_URL) {
+        updateSheetStatusUI('connected');
+        pushDataToGoogleSheet();
+        showToast('Đã lưu cấu hình và đồng bộ dữ liệu lên Sheet!');
+      } else {
+        updateSheetStatusUI('disconnected');
+        showToast('Đã ngắt kết nối Google Sheet');
+      }
+      closeSheetModal();
+    }
+
+    function copyAppsScriptCode() {
+      const code = document.getElementById('apps-script-code').value;
+      const tempArea = document.createElement('textarea');
+      tempArea.value = code;
+      document.body.appendChild(tempArea);
+      tempArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempArea);
+      showToast('Đã sao chép mã Apps Script!');
+    }
+
+    // LOCAL STORAGE CƠ BẢN: Lưu và Tải dữ liệu (Lưu song song với Google Sheet)
+    function saveLocalBackup() {
+      const dataToSave = {
+        tasks,
+        timerSettings,
+        stats: {
+          sessionsCompleted: timerState.sessionsCompleted,
+          totalFocusMinutes: timerState.totalFocusMinutes
+        },
+        settings: {
+          selectedSoundType,
+          currentVolume,
+          isAutoRepeatEnabled
+        }
+      };
+      localStorage.setItem('studyflow_data', JSON.stringify(dataToSave));
+    }
+
+    function saveData() {
+      saveLocalBackup();
+
+      // Đẩy tự động lên Google Sheet (với cơ chế debounce giảm tải request)
+      if (GOOGLE_SHEET_WEBAPP_URL) {
+        clearTimeout(sheetDebounceTimer);
+        sheetDebounceTimer = setTimeout(() => {
+          pushDataToGoogleSheet();
+        }, 1200);
+      }
+    }
+
+    function loadData() {
+      // 1. Tải URL Google Sheet nếu có
+      const savedSheetUrl = localStorage.getItem('studyflow_sheet_url');
+      if (savedSheetUrl && !GOOGLE_SHEET_WEBAPP_URL) {
+        GOOGLE_SHEET_WEBAPP_URL = savedSheetUrl;
+      }
+
+      if (GOOGLE_SHEET_WEBAPP_URL) {
+        updateSheetStatusUI('connected');
+      }
+
+      // 2. Tải bản sao lưu từ LocalStorage để hiển thị ngay lập tức
+      const saved = localStorage.getItem('studyflow_data');
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          if (data.tasks) tasks = data.tasks;
+          if (data.timerSettings) {
+            timerSettings.focus = data.timerSettings.focus || 25;
+            timerSettings.shortBreak = data.timerSettings.shortBreak || 5;
+          }
+          if (data.stats) {
+            timerState.sessionsCompleted = data.stats.sessionsCompleted || 0;
+            timerState.totalFocusMinutes = data.stats.totalFocusMinutes || 0;
+          }
+          if (data.settings) {
+            selectedSoundType = data.settings.selectedSoundType || 'chime';
+            currentVolume = data.settings.currentVolume !== undefined ? data.settings.currentVolume : 0.8;
+            isAutoRepeatEnabled = data.settings.isAutoRepeatEnabled || false;
+          }
+        } catch (e) {
+          console.error("Lỗi khi tải dữ liệu từ LocalStorage", e);
+        }
+      }
+
+      // 3. Nếu đã kết nối Google Sheet, tự động đồng bộ dữ liệu mới nhất từ Sheet về
+      if (GOOGLE_SHEET_WEBAPP_URL) {
+        syncDataFromSheet();
+      }
+    }
+
+    // Hàm tính ngày bắt đầu và kết thúc của tuần trong năm
+    function getWeekDateRangeString(weekNum, year = new Date().getFullYear()) {
+      // Tìm ngày thứ 2 đầu tiên của tuần 1
+      const jan4 = new Date(year, 0, 4);
+      const dayOfWeek = (jan4.getDay() + 6) % 7; // Thứ 2 = 0, CN = 6
+      const firstMonday = new Date(jan4);
+      firstMonday.setDate(jan4.getDate() - dayOfWeek);
+
+      // Tính ngày thứ 2 của tuần chỉ định
+      const targetMonday = new Date(firstMonday);
+      targetMonday.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
+
+      // Ngày chủ nhật của tuần đó
+      const targetSunday = new Date(targetMonday);
+      targetSunday.setDate(targetMonday.getDate() + 6);
+
+      const fMon = `${String(targetMonday.getDate()).padStart(2, '0')}/${String(targetMonday.getMonth() + 1).padStart(2, '0')}`;
+      const fSun = `${String(targetSunday.getDate()).padStart(2, '0')}/${String(targetSunday.getMonth() + 1).padStart(2, '0')}`;
+      return `${fMon} - ${fSun}`;
+    }
+
+    // Goals / Pomotodo Tasks State (Lên lịch theo Tuần & Thứ)
+    let tasks = []; // Sẽ được nạp từ LocalStorage, bỏ dữ liệu mẫu cứng
+
+    let currentTaskFilter = 'all';
+
+    // Sound Synthesizers with Tone.js & Tùy chọn nhiều loại chuông
+    let selectedSoundType = 'chime'; // 'chime' | 'digital' | 'zen' | 'fanfare' | 'wood'
+    let currentVolume = 0.8; // 0.0 -> 1.0 (80%)
+    let previousVolume = 0.8;
+    let isMuted = false;
+    let masterGainNode = null;
+    let bellSynth = null;
+    let synthDigital = null;
+    let synthZen = null;
+    let synthWood = null;
+
+    function initAudio() {
+      if (typeof Tone === 'undefined') return;
+
+      if (!masterGainNode) {
+        masterGainNode = new Tone.Gain(currentVolume).toDestination();
+      }
+
+      if (!bellSynth) {
+        bellSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.005, decay: 0.8, sustain: 0.1, release: 1.2 }
+        }).connect(masterGainNode);
+      }
+
+      if (!synthDigital) {
+        synthDigital = new Tone.Synth({
+          oscillator: { type: 'square' },
+          envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+        }).connect(masterGainNode);
+        synthDigital.volume.value = -10;
+      }
+
+      if (!synthZen) {
+        synthZen = new Tone.MetalSynth({
+          frequency: 180,
+          envelope: { attack: 0.001, decay: 2.2, release: 0.2 },
+          harmonicity: 3.1,
+          modulationIndex: 16,
+          resonance: 4000,
+          octaves: 1.5
+        }).connect(masterGainNode);
+        synthZen.volume.value = -8;
+      }
+
+      if (!synthWood) {
+        synthWood = new Tone.MembraneSynth({
+          pitchDecay: 0.008,
+          octaves: 2,
+          envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.1 }
+        }).connect(masterGainNode);
+        synthWood.volume.value = -4;
+      }
+    }
+
+    function onVolumeChange(val) {
+      const num = parseInt(val, 10);
+      currentVolume = num / 100;
+      isMuted = (num === 0);
+
+      // Cập nhật thanh slider trong thiết lập
+      const settingsSlider = document.getElementById('settings-volume-slider');
+      const settingsPct = document.getElementById('settings-vol-pct');
+
+      if (settingsSlider) settingsSlider.value = num;
+      if (settingsPct) settingsPct.innerText = `${num}%`;
+
+      saveData(); // Lưu cài đặt âm lượng
+
+      // Áp dụng mức âm lượng vào Tone.js Master Gain
+      initAudio();
+      if (masterGainNode) {
+        masterGainNode.gain.rampTo(currentVolume, 0.05);
+      }
+    }
+
+    function playBellNotification() {
+      try {
+        initAudio();
+        Tone.start();
+        const now = Tone.now();
+
+        switch (selectedSoundType) {
+          case 'digital':
+            synthDigital.triggerAttackRelease('C6', '16n', now);
+            synthDigital.triggerAttackRelease('C6', '16n', now + 0.15);
+            synthDigital.triggerAttackRelease('G6', '8n', now + 0.3);
+            break;
+
+          case 'zen':
+            synthZen.triggerAttackRelease('C3', '2n', now);
+            bellSynth.triggerAttackRelease(['C5', 'G5'], '1n', now + 0.1);
+            break;
+
+          case 'fanfare':
+            bellSynth.triggerAttackRelease('C5', '16n', now);
+            bellSynth.triggerAttackRelease('E5', '16n', now + 0.12);
+            bellSynth.triggerAttackRelease('G5', '16n', now + 0.24);
+            bellSynth.triggerAttackRelease(['C6', 'E6', 'G6'], '4n', now + 0.38);
+            break;
+
+          case 'wood':
+            synthWood.triggerAttackRelease('G4', '16n', now);
+            synthWood.triggerAttackRelease('C5', '16n', now + 0.14);
+            synthWood.triggerAttackRelease('G5', '16n', now + 0.28);
+            break;
+
+          case 'chime':
+          default:
+            bellSynth.triggerAttackRelease(['E5', 'B5'], '8n', now);
+            bellSynth.triggerAttackRelease(['G#5', 'E6'], '8n', now + 0.25);
+            break;
+        }
+      } catch (err) {
+        console.warn('Audio waiting for interaction', err);
+      }
+    }
+
+    function changeSoundType() {
+      selectedSoundType = document.getElementById('cfg-sound').value;
+      showToast('Đã đổi chuông báo');
+      saveData(); // Lưu cài đặt âm thanh
+      playBellNotification();
+    }
+
+    function previewSelectedSound() {
+      playBellNotification();
+    }
+
+    /* ====================================================================
+     * POMODORO TIMER LOGIC (CHỈ CÒN TẬP TRUNG & NGHỈ, CÓ NÚT LẶP LẠI)
+     * ==================================================================== */
+
+    function toggleAutoRepeat() {
+      isAutoRepeatEnabled = document.getElementById('auto-repeat-toggle').checked;
+      showToast(isAutoRepeatEnabled ? '🔁 Đã bật tự động lặp lại (Tập trung ⇄ Nghỉ)' : 'Đã tắt tự động lặp lại');
+      saveData(); // Lưu trạng thái
+    }
+
+    function setTimerMode(mode, autoStart = false) {
+      if (timerState.mode === mode) return;
+
+      // 1. Lưu chính xác thời gian còn lại của chế độ cũ trước khi rời khỏi
+      modeRemainingTimes[timerState.mode] = timerState.timeLeft;
+
+      // 2. Dừng ngay interval đang chạy để không tự động đếm giờ
+      if (timerState.intervalId) {
+        clearInterval(timerState.intervalId);
+        timerState.intervalId = null;
+      }
+      timerState.isRunning = false;
+
+      // 3. Chuyển sang chế độ mới và lấy lại thời gian độc lập của chế độ đó
+      timerState.mode = mode;
+      timerState.timeLeft = modeRemainingTimes[mode];
+      timerState.totalDuration = timerSettings[mode] * 60;
+
+      // Update UI tabs
+      const btnFocus = document.getElementById('mode-focus');
+      const btnShort = document.getElementById('mode-short');
+
+      if (mode === 'focus') {
+        btnFocus.className = 'flex-1 py-1.5 rounded-xl text-center font-semibold transition-all bg-white dark:bg-slate-700 shadow-sm text-rose-500';
+        btnShort.className = 'flex-1 py-1.5 rounded-xl text-center text-slate-500 dark:text-slate-400 transition-all hover:text-slate-800 dark:hover:text-white';
+      } else {
+        btnShort.className = 'flex-1 py-1.5 rounded-xl text-center font-semibold transition-all bg-white dark:bg-slate-700 shadow-sm text-cyan-500';
+        btnFocus.className = 'flex-1 py-1.5 rounded-xl text-center text-slate-500 dark:text-slate-400 transition-all hover:text-slate-800 dark:hover:text-white';
+      }
+
+      // Update Ring Progress color & nút Bắt đầu
+      const progressRing = document.getElementById('timer-progress');
+      const toggleBtn = document.getElementById('timer-toggle-btn');
+      
+      progressRing.classList.remove('text-rose-500', 'text-cyan-500');
+      toggleBtn.classList.remove('bg-rose-500', 'hover:bg-rose-600', 'shadow-rose-500/30', 'bg-cyan-500', 'hover:bg-cyan-600', 'shadow-cyan-500/30');
+
+      if (mode === 'focus') {
+        progressRing.classList.add('text-rose-500');
+        toggleBtn.classList.add('bg-rose-500', 'hover:bg-rose-600', 'shadow-rose-500/30');
+      } else {
+        progressRing.classList.add('text-cyan-500');
+        toggleBtn.classList.add('bg-cyan-500', 'hover:bg-cyan-600', 'shadow-cyan-500/30');
+      }
+
+      updateTimerDisplay();
+
+      // Chỉ tự chạy nếu được gọi từ hệ thống hết giờ có cờ autoStart (khi bật Lặp lại liên tục)
+      if (autoStart) {
+        timerState.isRunning = true;
+        timerState.intervalId = setInterval(tick, 1000);
+      }
+
+      updateTimerControls();
+    }
+
+    function toggleTimer() {
+      initAudio();
+      if (timerState.isRunning) {
+        // Pause
+        clearInterval(timerState.intervalId);
+        timerState.isRunning = false;
+        // Lưu lại chính xác thời gian còn lại của chế độ hiện tại khi tạm dừng
+        modeRemainingTimes[timerState.mode] = timerState.timeLeft;
+      } else {
+        // Start
+        timerState.isRunning = true;
+        timerState.intervalId = setInterval(tick, 1000);
+      }
+      updateTimerControls();
+      updatePipCanvas();
+    }
+
+    function startTimerOnly() {
+      initAudio();
+      if (!timerState.isRunning) {
+        timerState.isRunning = true;
+        timerState.intervalId = setInterval(tick, 1000);
+        updateTimerControls();
+        updatePipCanvas();
+      }
+    }
+
+    function pauseTimerOnly() {
+      if (timerState.isRunning) {
+        clearInterval(timerState.intervalId);
+        timerState.isRunning = false;
+        modeRemainingTimes[timerState.mode] = timerState.timeLeft;
+        updateTimerControls();
+        updatePipCanvas();
+      }
+    }
+
+    function tick() {
+      if (timerState.timeLeft > 0) {
+        timerState.timeLeft--;
+        // CHỈ cập nhật thời gian còn lại của chế độ đang chạy, tuyệt đối không đụng vào chế độ kia
+        if (timerState.mode === 'focus') {
+          modeRemainingTimes.focus = timerState.timeLeft;
+          timerState.totalFocusMinutes += (1 / 60);
+          updateStatsDisplay();
+        } else if (timerState.mode === 'shortBreak') {
+          modeRemainingTimes.shortBreak = timerState.timeLeft;
+        }
+
+        updateTimerDisplay();
+      } else {
+        clearInterval(timerState.intervalId);
+        timerState.isRunning = false;
+        playBellNotification();
+        handleTimerComplete();
+        updateTimerControls();
+      }
+    }
+
+    function handleTimerComplete() {
+      if (timerState.mode === 'focus') {
+        timerState.sessionsCompleted++;
+        showToast('🎉 Tuyệt vời! Bạn vừa hoàn thành một hiệp tập trung!');
+
+        if (timerState.activeTaskId) {
+          const task = tasks.find(t => t.id === timerState.activeTaskId);
+          if (task) {
+            task.completedPomos++;
+            if (task.completedPomos >= task.targetPomos && !task.isCompleted) {
+              task.isCompleted = true;
+              if (task.subtasks) task.subtasks.forEach(s => s.isCompleted = true);
+              confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
+              showToast(`🎯 Đã hoàn thành mục tiêu: "${task.title}"!`);
+            }
+            renderTasks();
+          }
+        }
+        
+        saveData(); // Lưu thống kê sau khi xong hiệp
+
+        // Đặt lại thời gian hiệp tập trung cho lượt kế tiếp
+        modeRemainingTimes.focus = timerSettings.focus * 60;
+        // Chuyển sang Nghỉ ngơi. Nếu có bật lặp lại thì tự động chạy tiếp
+        setTimerMode('shortBreak', isAutoRepeatEnabled);
+      } else {
+        showToast('Hết giờ nghỉ ngơi! Bắt đầu hiệp tập trung mới 💪');
+        // Đặt lại thời gian hiệp nghỉ cho lượt kế tiếp
+        modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
+        // Chuyển sang Tập trung. Nếu có bật lặp lại thì tự động chạy tiếp
+        setTimerMode('focus', isAutoRepeatEnabled);
+      }
+    }
+
+    function resetTimer() {
+      if (timerState.isRunning) {
+        clearInterval(timerState.intervalId);
+        timerState.isRunning = false;
+      }
+      timerState.timeLeft = timerSettings[timerState.mode] * 60;
+      modeRemainingTimes[timerState.mode] = timerState.timeLeft;
+      updateTimerDisplay();
+      updateTimerControls();
+      showToast('Đã đặt lại thời gian');
+    }
+
+    function updateTimerDisplay() {
+      const mins = Math.floor(timerState.timeLeft / 60);
+      const secs = timerState.timeLeft % 60;
+      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      
+      document.getElementById('timer-display').innerText = formatted;
+      document.title = `${formatted} - ${timerState.mode === 'focus' ? 'Tập trung' : 'Nghỉ ngơi'} | StudyFlow`;
+
+      const circumference = 640.88;
+      const fraction = timerState.timeLeft / timerState.totalDuration;
+      const offset = circumference * (1 - fraction);
+      document.getElementById('timer-progress').style.strokeDashoffset = offset;
+
+      // Đồng bộ vẽ lên canvas của Picture-in-Picture
+      updatePipCanvas();
+    }
+
+    function updateTimerControls() {
+      const btn = document.getElementById('timer-toggle-btn');
+      const icon = document.getElementById('timer-play-icon');
+      const text = document.getElementById('timer-btn-text');
+      const timerSvg = document.getElementById('timer-svg-container');
+
+      if (timerState.isRunning) {
+        icon.className = 'ph-fill ph-pause text-xl';
+        text.innerText = 'Tạm Dừng';
+        btn.classList.add('opacity-90');
+        if (timerSvg && timerState.mode === 'focus') {
+          timerSvg.classList.add('timer-glow-active');
+        }
+      } else {
+        icon.className = 'ph-fill ph-play text-xl';
+        text.innerText = 'Bắt Đầu';
+        btn.classList.remove('opacity-90');
+        if (timerSvg) {
+          timerSvg.classList.remove('timer-glow-active');
+        }
+      }
+    }
+
+    function updateCustomTimes() {
+      const f = parseInt(document.getElementById('cfg-focus').value) || 25;
+      const s = parseInt(document.getElementById('cfg-short').value) || 5;
+
+      timerSettings.focus = Math.max(1, f);
+      timerSettings.shortBreak = Math.max(1, s);
+
+      saveData(); // Lưu cài đặt thời gian
+
+      if (!timerState.isRunning) {
+        modeRemainingTimes[timerState.mode] = timerSettings[timerState.mode] * 60;
+        timerState.timeLeft = timerSettings[timerState.mode] * 60;
+        timerState.totalDuration = timerSettings[timerState.mode] * 60;
+        updateTimerDisplay();
+      }
+      showToast('Đã lưu thời gian cài đặt');
+    }
+
+    function updateStatsDisplay() {
+      document.getElementById('stat-pomo-count').innerText = timerState.sessionsCompleted;
+      document.getElementById('stat-total-minutes').innerText = `${Math.round(timerState.totalFocusMinutes)} phút`;
+      const doneTasks = tasks.filter(t => t.isCompleted).length;
+      document.getElementById('stat-tasks-done').innerText = doneTasks;
+    }
+
+    /* ====================================================================
+     * TASKS THEO TUẦN VÀ THỨ TRONG TUẦN
+     * ==================================================================== */
+
+    function initWeekDropdowns() {
+      let weekOpts = '';
+      const year = new Date().getFullYear();
+      const currentRealWeek = getCurrentWeekNumber();
+      const currentRealDay = getCurrentDayOfWeekCode();
+
+      for (let w = 1; w <= 52; w++) {
+        const dateRange = getWeekDateRangeString(w, year);
+        weekOpts += `<option value="${w}" ${w === currentRealWeek ? 'selected' : ''}>Tuần ${w} (${dateRange})</option>`;
+      }
+
+      document.getElementById('filter-week').innerHTML = weekOpts;
+      document.getElementById('new-task-week').innerHTML = weekOpts;
+      
+      // Tự động chọn đúng thứ hôm nay theo thời gian thực cho ô tạo mục tiêu mới
+      const daySelect = document.getElementById('new-task-day-of-week');
+      if (daySelect) {
+        daySelect.value = currentRealDay;
+      }
+
+      // Kích hoạt nút filter đúng thứ hôm nay
+      setFilterDayOfWeek(currentRealDay);
+    }
+
+    function onWeekDayFilterChange() {
+      selectedFilterWeek = parseInt(document.getElementById('filter-week').value) || currentWeekNum;
+      updateFilterLabels();
+      renderTasks();
+    }
+
+    function setFilterDayOfWeek(dayCode) {
+      selectedFilterDayOfWeek = dayCode;
+      
+      const dayCodes = ['all', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+      dayCodes.forEach(d => {
+        const btn = document.getElementById(`btn-day-${d}`);
+        if (btn) {
+          if (d === dayCode) {
+            btn.className = 'day-filter-btn px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs';
+          } else {
+            btn.className = 'day-filter-btn px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white';
+          }
+        }
+      });
+
+      updateFilterLabels();
+      renderTasks();
+    }
+
+    function updateFilterLabels() {
+      const dayNames = {
+        'all': 'Cả tuần',
+        'T2': 'Thứ 2',
+        'T3': 'Thứ 3',
+        'T4': 'Thứ 4',
+        'T5': 'Thứ 5',
+        'T6': 'Thứ 6',
+        'T7': 'Thứ 7',
+        'CN': 'Chủ Nhật'
+      };
+
+      const dateRange = getWeekDateRangeString(selectedFilterWeek);
+      document.getElementById('progress-date-label').innerText = `Tuần ${selectedFilterWeek} (${dateRange}) • ${dayNames[selectedFilterDayOfWeek]}`;
+    }
+
+    function addTask(e) {
+      e.preventDefault();
+      const titleInput = document.getElementById('new-task-title');
+      const title = titleInput.value.trim();
+      if (!title) return;
+
+      const weekVal = parseInt(document.getElementById('new-task-week').value) || currentWeekNum;
+      const dayVal = document.getElementById('new-task-day-of-week').value;
+
+      const newTask = {
+        id: 'task-' + Date.now(),
+        title: title,
+        week: weekVal,
+        dayOfWeek: dayVal,
+        targetPomos: 1,
+        completedPomos: 0,
+        isCompleted: false,
+        subtasks: [],
+        createdAt: Date.now()
+      };
+
+      tasks.unshift(newTask);
+      titleInput.value = '';
+      
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+      showToast(`Đã thêm mục tiêu: ${title}`);
+    }
+
+    function toggleTaskStatus(taskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+      
+      task.isCompleted = !task.isCompleted;
+
+      // Tick mục tiêu lớn sẽ tick toàn bộ mục tiêu con
+      if (task.subtasks && task.subtasks.length > 0) {
+        task.subtasks.forEach(s => {
+          s.isCompleted = task.isCompleted;
+        });
+      }
+
+      if (task.isCompleted) {
+        confetti({
+          particleCount: 70,
+          spread: 60,
+          origin: { y: 0.75 },
+          colors: ['#6366f1', '#10b981', '#f43f5e', '#fbbf24']
+        });
+      }
+
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+      updateStatsDisplay();
+    }
+
+    function toggleSubtaskStatus(taskId, subtaskId, event) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.subtasks) return;
+
+      const sub = task.subtasks.find(s => s.id === subtaskId);
+      if (!sub) return;
+
+      sub.isCompleted = !sub.isCompleted;
+
+      // Hiệu ứng pháo hoa mini ăn mừng ngay tại vị trí tick nhiệm vụ nhỏ
+      if (sub.isCompleted) {
+        let originX = 0.5;
+        let originY = 0.6;
+        if (event && event.clientX && event.clientY) {
+          originX = event.clientX / window.innerWidth;
+          originY = event.clientY / window.innerHeight;
+        }
+
+        confetti({
+          particleCount: 22,
+          spread: 40,
+          startVelocity: 16,
+          ticks: 70,
+          gravity: 0.85,
+          scalar: 0.75,
+          origin: { x: originX, y: originY },
+          colors: ['#6366f1', '#10b981', '#38bdf8', '#f59e0b']
+        });
+      }
+
+      // Tự động hoàn thành mục tiêu lớn nếu toàn bộ mục tiêu nhỏ đã xong
+      const totalSub = task.subtasks.length;
+      const completedSub = task.subtasks.filter(s => s.isCompleted).length;
+
+      if (totalSub > 0 && completedSub === totalSub) {
+        task.isCompleted = true;
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.7 },
+          colors: ['#10b981', '#6366f1', '#f43f5e', '#facc15']
+        });
+        showToast(`🎉 Tuyệt vời! Đã hoàn thành tất cả mục tiêu của "${task.title}"`);
+      } else if (completedSub < totalSub && task.isCompleted) {
+        task.isCompleted = false;
+      }
+
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+      updateStatsDisplay();
+    }
+
+    function addSubtask(taskId, event) {
+      event.preventDefault();
+      const input = document.getElementById(`subtask-input-${taskId}`);
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      if (!task.subtasks) task.subtasks = [];
+      task.subtasks.push({
+        id: 'sub-' + Date.now(),
+        title: text,
+        isCompleted: false
+      });
+
+      if (task.isCompleted) {
+        task.isCompleted = false;
+      }
+
+      input.value = '';
+      
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+    }
+
+    function deleteSubtask(taskId, subtaskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.subtasks) return;
+
+      task.subtasks = task.subtasks.filter(s => s.id !== subtaskId);
+      if (task.subtasks.length > 0) {
+        task.isCompleted = task.subtasks.every(s => s.isCompleted);
+      }
+
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+    }
+
+    function deleteTask(taskId) {
+      tasks = tasks.filter(t => t.id !== taskId);
+      if (timerState.activeTaskId === taskId) {
+        unlinkActiveTask();
+      }
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+      updateStatsDisplay();
+    }
+
+    function setActiveTaskForTimer(taskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      timerState.activeTaskId = taskId;
+      document.getElementById('linked-task-container').classList.remove('hidden');
+      document.getElementById('linked-task-title').innerText = task.title;
+      document.getElementById('timer-task-hint').innerText = `Mục tiêu: ${task.title}`;
+
+      renderTasks();
+      showToast(`Đã chọn "${task.title}" cho ca tập trung!`);
+    }
+
+    function unlinkActiveTask() {
+      timerState.activeTaskId = null;
+      document.getElementById('linked-task-container').classList.add('hidden');
+      document.getElementById('timer-task-hint').innerText = 'Sẵn sàng bắt đầu';
+      renderTasks();
+    }
+
+    function filterTasks(filterType) {
+      currentTaskFilter = filterType;
+      document.querySelectorAll('.task-filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filterType) {
+          btn.className = 'task-filter-btn px-3 py-1 rounded-lg font-semibold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300';
+        } else {
+          btn.className = 'task-filter-btn px-3 py-1 rounded-lg font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800';
+        }
+      });
+      renderTasks();
+    }
+
+    function clearCompletedTasks() {
+      const count = tasks.filter(t => t.isCompleted).length;
+      if (count === 0) {
+        showToast('Không có mục tiêu hoàn thành để xoá');
+        return;
+      }
+      tasks = tasks.filter(t => !t.isCompleted);
+      
+      saveData(); // Lưu dữ liệu
+      renderTasks();
+      showToast(`Đã xoá ${count} mục tiêu đã hoàn thành`);
+    }
+
+    function getDayLabel(code) {
+      const map = {
+        'T2': 'Thứ 2',
+        'T3': 'Thứ 3',
+        'T4': 'Thứ 4',
+        'T5': 'Thứ 5',
+        'T6': 'Thứ 6',
+        'T7': 'Thứ 7',
+        'CN': 'Chủ Nhật'
+      };
+      return map[code] || code;
+    }
+
+    function renderTasks() {
+      const listEl = document.getElementById('tasks-list');
+      const emptyEl = document.getElementById('tasks-empty-state');
+      listEl.innerHTML = '';
+
+      // Lọc theo Tuần & Thứ
+      let filtered = tasks.filter(t => {
+        const matchesWeek = (t.week === selectedFilterWeek);
+        const matchesDay = (selectedFilterDayOfWeek === 'all' || t.dayOfWeek === selectedFilterDayOfWeek);
+        return matchesWeek && matchesDay;
+      });
+
+      // Lọc theo Trạng thái
+      if (currentTaskFilter === 'pending') filtered = filtered.filter(t => !t.isCompleted);
+      if (currentTaskFilter === 'completed') filtered = filtered.filter(t => t.isCompleted);
+
+      if (filtered.length === 0) {
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.classList.add('hidden');
+      }
+
+      filtered.forEach(task => {
+        const isCurrentActive = timerState.activeTaskId === task.id;
+        const subtasks = task.subtasks || [];
+        const subCount = subtasks.length;
+        const subDoneCount = subtasks.filter(s => s.isCompleted).length;
+
+        // Subtasks HTML
+        let subtasksHtml = '';
+        subtasks.forEach(sub => {
+          subtasksHtml += `
+            <div class="flex items-center justify-between py-1.5 px-2 rounded-xl hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition group/sub">
+              <label class="flex items-center gap-2.5 cursor-pointer text-xs flex-1 truncate select-none">
+                <input type="checkbox" ${sub.isCompleted ? 'checked' : ''} onchange="toggleSubtaskStatus('${task.id}', '${sub.id}', event)"
+                  class="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer transition-transform duration-150 active:scale-125">
+                <span class="truncate transition-all duration-200 ${sub.isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'}">
+                  ${escapeHtml(sub.title)}
+                </span>
+              </label>
+              <button onclick="deleteSubtask('${task.id}', '${sub.id}')" class="opacity-0 group-hover/sub:opacity-100 text-slate-400 hover:text-rose-500 p-1 transition">
+                <i class="ph ph-x text-xs"></i>
+              </button>
+            </div>
+          `;
+        });
+
+        const card = document.createElement('div');
+        card.className = `rounded-2xl border transition-all duration-300 overflow-hidden animate-fade-in hover:shadow-md ${
+          isCurrentActive
+            ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-800 ring-2 ring-indigo-500/20 shadow-sm'
+            : task.isCompleted
+            ? 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+            : 'bg-white dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+        }`;
+
+        card.innerHTML = `
+          <!-- Main Goal Header -->
+          <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <button onclick="toggleTaskStatus('${task.id}')" title="${task.isCompleted ? 'Đánh dấu chưa xong' : 'Đánh dấu xong tất cả'}" class="w-6 h-6 rounded-lg border ${
+                task.isCompleted
+                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                  : 'border-slate-300 dark:border-slate-600 hover:border-indigo-500'
+              } flex items-center justify-center transition shrink-0">
+                ${task.isCompleted ? '<i class="ph-bold ph-check text-xs"></i>' : ''}
+              </button>
+
+              <div class="truncate flex-1">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-semibold truncate ${
+                    task.isCompleted ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'
+                  }">${escapeHtml(task.title)}</p>
+                  
+                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 shrink-0">
+                    Tuần ${task.week} • ${getDayLabel(task.dayOfWeek)}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-3 mt-1.5">
+                  ${
+                    subCount > 0
+                      ? `<span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                          <i class="ph-bold ph-check-square"></i> ${subDoneCount}/${subCount} mục tiêu nhỏ
+                        </span>`
+                      : ''
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${
+                !task.isCompleted
+                  ? `<button onclick="setActiveTaskForTimer('${task.id}')" title="Chọn để bấm giờ" class="p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold ${
+                      isCurrentActive
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-600'
+                    } transition flex items-center gap-1">
+                      <i class="ph-bold ph-timer"></i>
+                      <span class="hidden sm:inline">${isCurrentActive ? 'Đang chạy' : 'Học bài'}</span>
+                    </button>`
+                  : ''
+              }
+              <button onclick="deleteTask('${task.id}')" class="p-2 text-slate-400 hover:text-rose-500 rounded-xl transition">
+                <i class="ph-bold ph-trash"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Subtasks / Checklist Drawer inside the Goal -->
+          <div class="px-4 pb-3 pt-1 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30">
+            <div class="space-y-0.5 mb-2">
+              ${subtasksHtml}
+            </div>
+
+            <form onsubmit="addSubtask('${task.id}', event)" class="flex items-center gap-2 mt-1">
+              <i class="ph ph-plus text-slate-400 text-xs"></i>
+              <input type="text" id="subtask-input-${task.id}" placeholder="Thêm mục tiêu nhỏ hơn..."
+                class="bg-transparent flex-1 text-xs outline-none py-1 text-slate-700 dark:text-slate-200 placeholder-slate-400 border-b border-transparent focus:border-indigo-400">
+              <button type="submit" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5">
+                Thêm
+              </button>
+            </form>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+
+      // Update Goal Progress
+      const tasksInView = tasks.filter(t => {
+        const matchesWeek = (t.week === selectedFilterWeek);
+        const matchesDay = (selectedFilterDayOfWeek === 'all' || t.dayOfWeek === selectedFilterDayOfWeek);
+        return matchesWeek && matchesDay;
+      });
+      const total = tasksInView.length;
+      const completed = tasksInView.filter(t => t.isCompleted).length;
+      const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+      document.getElementById('goal-progress-percent').innerText = `${pct}% (${completed}/${total})`;
+      document.getElementById('goal-progress-bar').style.width = `${pct}%`;
+      updateStatsDisplay();
+    }
+
+    function toggleDarkMode() {
+      const html = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        icon.className = 'ph-bold ph-moon text-lg';
+      } else {
+        html.classList.add('dark');
+        icon.className = 'ph-bold ph-sun text-lg';
+      }
+    }
+
+    /* ====================================================================
+     * CỬA SỔ ĐỒNG HỒ NỔI THU NHỎ (DOCUMENT PICTURE-IN-PICTURE KHÔNG PHẢI VIDEO)
+     * Không còn thanh tua video, không phụ đề, không biểu tượng mute.
+     * Có nút Tạm Dừng / Tiếp Tục trực tiếp trên cửa sổ nổi.
+     * ==================================================================== */
+    let docPipWindow = null;
+    let isMiniMode = false;
+    let pipVideoElement = null;
+    let pipCanvasStream = null;
+
+    function drawTimerOnPipCanvas() {
+      const canvas = document.getElementById('pip-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Nền tối hiện đại
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, w, h);
+
+      const mins = Math.floor(timerState.timeLeft / 60);
+      const secs = timerState.timeLeft % 60;
+      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      const isFocus = (timerState.mode === 'focus');
+      const ringColor = isFocus ? '#f43f5e' : '#06b6d4';
+
+      const task = timerState.activeTaskId ? tasks.find(t => t.id === timerState.activeTaskId) : null;
+      const taskTitle = task ? task.title : 'Sẵn sàng học';
+
+      // Vẽ vòng tròn tiến độ ngoài
+      const centerX = w / 2;
+      const centerY = h / 2 - 15;
+      const radius = 175;
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 20;
+      ctx.stroke();
+
+      const fraction = timerState.totalDuration > 0 ? (timerState.timeLeft / timerState.totalDuration) : 0;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + (Math.PI * 2 * fraction);
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+      ctx.strokeStyle = ringColor;
+      ctx.lineWidth = 20;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Badge Chế độ
+      ctx.fillStyle = ringColor;
+      ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(isFocus ? '🎯 TẬP TRUNG' : '☕ NGHỈ NGƠI', centerX, centerY - 65);
+
+      // Chữ số đếm giờ to rõ
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 88px "JetBrains Mono", monospace';
+      ctx.fillText(formatted, centerX, centerY + 30);
+
+      // Trạng thái / Tên mục tiêu
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '500 20px "Plus Jakarta Sans", sans-serif';
+      const truncatedTitle = taskTitle.length > 22 ? taskTitle.slice(0, 20) + '...' : taskTitle;
+      ctx.fillText(truncatedTitle, centerX, centerY + 75);
+
+      // Nút / Gợi ý trạng thái
+      ctx.fillStyle = timerState.isRunning ? '#22c55e' : '#eab308';
+      ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(timerState.isRunning ? '● Đang chạy' : '❚❚ Đang tạm dừng', centerX, h - 35);
+    }
+
+    function renderPipWindowContent(win) {
+      if (!win || !win.document) return;
+      const mins = Math.floor(timerState.timeLeft / 60);
+      const secs = timerState.timeLeft % 60;
+      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      const isFocus = (timerState.mode === 'focus');
+      const task = timerState.activeTaskId ? tasks.find(t => t.id === timerState.activeTaskId) : null;
+      const taskTitle = task ? task.title : '';
+
+      const circumference = 565.48; // 2 * PI * 90
+      const fraction = timerState.totalDuration > 0 ? (timerState.timeLeft / timerState.totalDuration) : 0;
+      const offset = circumference * (1 - fraction);
+      const ringColor = isFocus ? '#f43f5e' : '#06b6d4';
+
+      win.document.title = `${formatted} • ${isFocus ? 'Tập trung' : 'Nghỉ ngơi'}`;
+
+      const container = win.document.getElementById('pip-root');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; user-select: none;">
+          <!-- Nút quay lại trang web nhanh ở góc trên -->
+          <button id="pip-back-btn" title="Quay lại trang web" style="
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+          ">
+            <span>⤶ Quay lại web</span>
+          </button>
+
+          <!-- Badge chế độ -->
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: ${ringColor}; margin-bottom: 6px;">
+            ${isFocus ? '🎯 Tập Trung' : '☕ Nghỉ Ngơi'}
+          </div>
+
+          <!-- Vòng đếm tròn -->
+          <div style="position: relative; width: 170px; height: 170px; display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 100%; height: 100%; transform: rotate(-90deg);" viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="90" stroke="#1e293b" stroke-width="12" fill="none" />
+              <circle cx="100" cy="100" r="90" stroke="${ringColor}" stroke-width="12" stroke-linecap="round" fill="none"
+                stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" style="transition: stroke-dashoffset 0.8s ease;" />
+            </svg>
+            <div style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <span style="font-family: 'JetBrains Mono', monospace, sans-serif; font-size: 40px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">
+                ${formatted}
+              </span>
+              ${taskTitle ? `<span style="font-size: 11px; color: #94a3b8; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;">📌 ${escapeHtml(taskTitle)}</span>` : ''}
+            </div>
+          </div>
+
+          <!-- Thanh nút thao tác: Tạm Dừng / Tiếp Tục -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
+            <button id="pip-action-btn" style="
+              padding: 7px 20px;
+              border-radius: 9999px;
+              border: none;
+              background: ${timerState.isRunning ? 'rgba(255,255,255,0.14)' : ringColor};
+              color: #ffffff;
+              font-size: 13px;
+              font-weight: 700;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              transition: all 0.2s ease;
+              box-shadow: ${timerState.isRunning ? 'none' : '0 4px 14px ' + (isFocus ? 'rgba(244,63,94,0.4)' : 'rgba(6,182,212,0.4)')};
+            ">
+              <span>${timerState.isRunning ? '❚❚ Tạm dừng' : '▶ Tiếp tục'}</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      const actionBtn = win.document.getElementById('pip-action-btn');
+      if (actionBtn) {
+        actionBtn.onclick = () => {
+          toggleTimer();
+        };
+      }
+
+      const backBtn = win.document.getElementById('pip-back-btn');
+      if (backBtn) {
+        backBtn.onclick = () => {
+          window.focus();
+          if (docPipWindow && !docPipWindow.closed) {
+            docPipWindow.close();
+            docPipWindow = null;
+          }
+        };
+      }
+    }
+
+    async function toggleMiniMode() {
+      // 1. Ưu tiên Document Picture-in-Picture API: Hiển thị cửa sổ popup chuẩn độc lập (không hề có thanh video)
+      if ('documentPictureInPicture' in window) {
+        try {
+          if (docPipWindow && !docPipWindow.closed) {
+            docPipWindow.close();
+            docPipWindow = null;
+            showToast('Đã đóng đồng hồ thu nhỏ');
+            return;
+          }
+
+          docPipWindow = await window.documentPictureInPicture.requestWindow({
+            width: 260,
+            height: 310,
+            disallowReturnToOpener: false
+          });
+
+          const pipDoc = docPipWindow.document;
+          pipDoc.body.style.margin = '0';
+          pipDoc.body.style.padding = '0';
+          pipDoc.body.style.width = '100vw';
+          pipDoc.body.style.height = '100vh';
+          pipDoc.body.style.background = '#090d16';
+          pipDoc.body.style.color = '#ffffff';
+          pipDoc.body.style.overflow = 'hidden';
+          pipDoc.body.style.fontFamily = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+
+          const root = pipDoc.createElement('div');
+          root.id = 'pip-root';
+          root.style.width = '100%';
+          root.style.height = '100%';
+          pipDoc.body.appendChild(root);
+
+          renderPipWindowContent(docPipWindow);
+
+          docPipWindow.addEventListener('pagehide', () => {
+            docPipWindow = null;
+          });
+
+          showToast('🖥️ Đã mở đồng hồ thu nhỏ (chuyển tab khác vẫn thấy)!');
+          return;
+        } catch (err) {
+          console.warn('Doc PiP not permitted or cancelled:', err);
+        }
+      }
+
+      // 2. Fallback sang Canvas Video Picture-in-Picture (Cơ chế giống YouTube ghim góc màn hình)
+      // Cấu hình MediaSession và stream không tiếng để ẩn toàn bộ timeline, phụ đề và loa
+      try {
+        const video = document.getElementById('pip-video');
+        const canvas = document.getElementById('pip-canvas');
+
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          showToast('Đã đóng cửa sổ thu nhỏ');
+          return;
+        }
+
+        drawTimerOnPipCanvas();
+
+        if (!pipCanvasStream) {
+          pipCanvasStream = canvas.captureStream(30);
+          video.srcObject = pipCanvasStream;
+          video.muted = true;
+        }
+
+        // Đảm bảo video luôn chạy để duy trì stream, không bị ngắt sự kiện điều khiển
+        if (video.paused) {
+          try {
+            await video.play();
+          } catch (e) {
+            console.log('Video play error:', e);
+          }
+        }
+
+        // Thiết lập Media Session trực tiếp: Bấm Tạm dừng hay Tiếp tục đều xử lý ngay trên khung PiP
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: timerState.mode === 'focus' ? '🎯 Đang Tập Trung' : '☕ Giờ Nghỉ Ngơi',
+            artist: 'StudyFlow Pomotodo',
+            album: timerState.activeTaskId ? (tasks.find(t => t.id === timerState.activeTaskId)?.title || '') : 'Bấm giờ học tập'
+          });
+
+          navigator.mediaSession.setActionHandler('play', () => {
+            startTimerOnly();
+            // Luôn đảm bảo video tiếp tục phát
+            if (video.paused) video.play().catch(() => {});
+          });
+
+          navigator.mediaSession.setActionHandler('pause', () => {
+            pauseTimerOnly();
+            // Đảm bảo video vẫn play ngầm để giữ khung PiP hoạt động và cho phép bấm Play tiếp
+            if (video.paused) video.play().catch(() => {});
+          });
+
+          // Vô hiệu hoá timeline seeker
+          navigator.mediaSession.setActionHandler('seekto', null);
+          navigator.mediaSession.setActionHandler('seekbackward', null);
+          navigator.mediaSession.setActionHandler('seekforward', null);
+        }
+
+        await video.requestPictureInPicture();
+        showToast('📌 Đã bật đồng hồ nổi ghim góc màn hình');
+        return;
+      } catch (videoPipErr) {
+        console.warn('Standard PiP not available, using in-page mini player:', videoPipErr);
+      }
+
+      // 3. Fallback cuối cùng: Cửa sổ Mini Player trên chính trang web
+      isMiniMode = !isMiniMode;
+      const body = document.body;
+      const miniBar = document.getElementById('mini-mode-bar');
+
+      if (isMiniMode) {
+        body.classList.add('mini-mode');
+        miniBar.classList.remove('hidden');
+        showToast('Đã chuyển sang chế độ Đồng hồ thu nhỏ');
+      } else {
+        body.classList.remove('mini-mode');
+        miniBar.classList.add('hidden');
+        showToast('Đã quay lại trang web đầy đủ');
+      }
+    }
+
+    function updatePipCanvas() {
+      // 1. Cập nhật giao diện cửa sổ nổi Document PiP
+      if (docPipWindow && !docPipWindow.closed) {
+        renderPipWindowContent(docPipWindow);
+      }
+
+      // 2. Cập nhật khung vẽ Canvas cho Video PiP
+      drawTimerOnPipCanvas();
+
+      // Cập nhật trạng thái MediaSession
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = timerState.isRunning ? 'playing' : 'paused';
+      }
+
+      // Đảm bảo video ngầm luôn duy trì stream để không bị trình duyệt đóng kết nối PiP
+      const video = document.getElementById('pip-video');
+      if (video && video.paused && document.pictureInPictureElement) {
+        video.play().catch(() => {});
+      }
+    }
+
+    /* Phóng to / Thu nhỏ Toàn Màn Hình (Có fallback an toàn tránh lỗi permissions policy) */
+    let isSimulatedFullscreen = false;
+
+    function toggleFullScreen() {
+      const icon = document.getElementById('fullscreen-icon');
+      const btn = document.getElementById('fullscreen-btn');
+
+      // 1. Kiểm tra trạng thái Native Fullscreen
+      const isNativeFs = document.fullscreenElement || document.webkitFullscreenElement;
+
+      if (!isNativeFs && !isSimulatedFullscreen) {
+        // Thử bật native fullscreen trước
+        const docEl = document.documentElement;
+        const requestMethod = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+
+        if (requestMethod) {
+          try {
+            const promise = requestMethod.call(docEl);
+            if (promise && promise.catch) {
+              promise.catch(() => {
+                // Bị chặn permissions policy -> dùng CSS Fallback
+                enableSimulatedFullscreen();
+              });
+            }
+          } catch (e) {
+            enableSimulatedFullscreen();
+          }
+        } else {
+          enableSimulatedFullscreen();
+        }
+      } else {
+        // Tắt toàn màn hình
+        if (isNativeFs) {
+          try {
+            const exitMethod = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exitMethod) {
+              const promise = exitMethod.call(document);
+              if (promise && promise.catch) promise.catch(() => {});
+            }
+          } catch (e) {}
+        }
+        if (isSimulatedFullscreen) {
+          disableSimulatedFullscreen();
+        }
+      }
+    }
+
+    function enableSimulatedFullscreen() {
+      isSimulatedFullscreen = true;
+      document.body.classList.add('simulated-fullscreen');
+      updateFullscreenUI(true);
+      showToast('Đã bật phóng to toàn màn hình 🖥️');
+    }
+
+    function disableSimulatedFullscreen() {
+      isSimulatedFullscreen = false;
+      document.body.classList.remove('simulated-fullscreen');
+      updateFullscreenUI(false);
+      showToast('Đã thoát chế độ toàn màn hình');
+    }
+
+    function updateFullscreenUI(active) {
+      const icon = document.getElementById('fullscreen-icon');
+      const btn = document.getElementById('fullscreen-btn');
+      if (!icon || !btn) return;
+
+      if (active) {
+        icon.className = 'ph-bold ph-corners-in text-lg text-indigo-600 dark:text-indigo-400';
+        btn.setAttribute('title', 'Thu nhỏ màn hình (Esc)');
+      } else {
+        icon.className = 'ph-bold ph-corners-out text-lg text-slate-600 dark:text-slate-300';
+        btn.setAttribute('title', 'Phóng to toàn màn hình');
+      }
+    }
+
+    // Cập nhật khi native fullscreen thay đổi (Esc, F11)
+    function updateFullscreenIcon() {
+      const isNativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      if (isNativeFs) {
+        updateFullscreenUI(true);
+        showToast('Đã bật chế độ toàn màn hình 🖥️');
+      } else if (!isSimulatedFullscreen) {
+        updateFullscreenUI(false);
+      }
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenIcon);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toast-msg');
+      msgEl.innerText = message;
+
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      clearTimeout(window._toastTimeout);
+      window._toastTimeout = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-24', 'opacity-0');
+      }, 3000);
+    }
+
+    function confirmCustom(message) {
+      return window.confirm(message);
+    }
+
+    function escapeHtml(string) {
+      const div = document.createElement('div');
+      div.innerText = string;
+      return div.innerHTML;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+      if (e.key === 'Escape' && isMiniMode) {
+        toggleMiniMode();
+        return;
+      }
+
+      if (e.key === 'Escape' && isSimulatedFullscreen) {
+        disableSimulatedFullscreen();
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      }
+    });
+
+    // Window Onload Initialization
+    window.onload = function() {
+      // Tải dữ liệu từ LocalStorage trước khi khởi tạo UI
+      loadData();
+      
+      // Nếu không có dữ liệu mẫu nào được load, tạo một mục tiêu mặc định
+      if (tasks.length === 0) {
+         tasks = [
+           { id: 'task-intro', title: 'Khám phá StudyFlow', week: currentWeekNum, dayOfWeek: currentDayCode, targetPomos: 1, completedPomos: 0, isCompleted: false, subtasks: [{ id: 'sub-intro', title: 'Thử đếm giờ Pomodoro', isCompleted: false }] }
+         ];
+         saveData();
+      }
+
+      // Khôi phục cài đặt trên UI
+      document.getElementById('cfg-focus').value = timerSettings.focus;
+      document.getElementById('cfg-short').value = timerSettings.shortBreak;
+      document.getElementById('cfg-sound').value = selectedSoundType;
+      document.getElementById('auto-repeat-toggle').checked = isAutoRepeatEnabled;
+      document.getElementById('settings-volume-slider').value = Math.round(currentVolume * 100);
+      document.getElementById('settings-vol-pct').innerText = `${Math.round(currentVolume * 100)}%`;
+
+      // Đặt lại bộ đếm giờ dựa trên settings vừa load
+      modeRemainingTimes.focus = timerSettings.focus * 60;
+      modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
+      timerState.timeLeft = timerSettings.focus * 60;
+      timerState.totalDuration = timerSettings.focus * 60;
+
+      initWeekDropdowns();
+      updateFilterLabels();
+      updateTimerDisplay();
+      renderTasks();
+      updateStatsDisplay();
+
+      // Kiểm tra thời gian thực định kỳ mỗi phút: nếu sang ngày/thứ mới, tự động cập nhật
+      let lastCheckedDay = getCurrentDayOfWeekCode();
+      setInterval(() => {
+        const nowDay = getCurrentDayOfWeekCode();
+        if (nowDay !== lastCheckedDay) {
+          lastCheckedDay = nowDay;
+          const nowWeek = getCurrentWeekNumber();
+          selectedFilterWeek = nowWeek;
+          selectedFilterDayOfWeek = nowDay;
+          
+          const weekFilterSelect = document.getElementById('filter-week');
+          if (weekFilterSelect) weekFilterSelect.value = nowWeek;
+          
+          const newTaskDay = document.getElementById('new-task-day-of-week');
+          if (newTaskDay) newTaskDay.value = nowDay;
+          
+          setFilterDayOfWeek(nowDay);
+          showToast(`🗓️ Đã cập nhật sang ngày mới (${getDayLabel(nowDay)})`);
+        }
+      }, 60000);
+    };
+  </script>
+</body>
+</html>
