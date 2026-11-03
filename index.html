@@ -1264,11 +1264,16 @@ function doPost(e) {
         clearInterval(timerState.intervalId);
         timerState.isRunning = false;
       }
+      // Reset cả hai chế độ về đúng thời gian cài đặt
+      modeRemainingTimes.focus = timerSettings.focus * 60;
+      modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
+
       timerState.timeLeft = timerSettings[timerState.mode] * 60;
-      modeRemainingTimes[timerState.mode] = timerState.timeLeft;
+      timerState.totalDuration = timerSettings[timerState.mode] * 60;
+
       updateTimerDisplay();
       updateTimerControls();
-      showToast('Đã đặt lại thời gian');
+      showToast('Đã đặt lại thời gian cả Tập trung & Nghỉ ngơi');
     }
 
     function updateTimerDisplay() {
@@ -1315,18 +1320,32 @@ function doPost(e) {
       const f = parseInt(document.getElementById('cfg-focus').value) || 25;
       const s = parseInt(document.getElementById('cfg-short').value) || 5;
 
+      const oldFocus = timerSettings.focus;
+      const oldShort = timerSettings.shortBreak;
+
       timerSettings.focus = Math.max(1, f);
       timerSettings.shortBreak = Math.max(1, s);
 
-      saveData(); // Lưu cài đặt thời gian
-
+      // Cập nhật lại thời gian của cả 2 chế độ
+      // Nếu thời gian cũ chưa chạy hoặc đang bằng thời gian cài đặt ban đầu, reset về giá trị mới
       if (!timerState.isRunning) {
-        modeRemainingTimes[timerState.mode] = timerSettings[timerState.mode] * 60;
+        modeRemainingTimes.focus = timerSettings.focus * 60;
+        modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
+        
         timerState.timeLeft = timerSettings[timerState.mode] * 60;
         timerState.totalDuration = timerSettings[timerState.mode] * 60;
         updateTimerDisplay();
+      } else {
+        // Nếu đồng hồ đang chạy ở 1 chế độ, chế độ còn lại vẫn được cập nhật sẵn sàng sang số phút mới
+        if (timerState.mode === 'focus') {
+          modeRemainingTimes.shortBreak = timerSettings.shortBreak * 60;
+        } else {
+          modeRemainingTimes.focus = timerSettings.focus * 60;
+        }
       }
-      showToast('Đã lưu thời gian cài đặt');
+
+      saveData(); // Lưu cài đặt thời gian
+      showToast('Đã cập nhật thời gian cài đặt cho cả 2 chế độ');
     }
 
     function updateStatsDisplay() {
