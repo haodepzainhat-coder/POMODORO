@@ -316,12 +316,17 @@
           </div>
 
           <!-- Quick Stats Summary -->
-          <div class="stat-summary-row grid grid-cols-3 w-full gap-2 border-t border-slate-100 dark:border-slate-800/80 mt-6 pt-5 text-center">
-            <div>
+          <div class="stat-summary-row grid grid-cols-3 w-full gap-2 border-t border-slate-100 dark:border-slate-800/80 mt-6 pt-5 text-center relative group/stats">
+            <!-- Nút reset thống kê về 0 nhanh -->
+            <button onclick="resetStatsToZero()" title="Đặt lại thống kê về 0" class="absolute -top-3 right-0 opacity-0 group-hover/stats:opacity-100 transition-opacity p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-500 text-xs flex items-center gap-1 px-2">
+              <i class="ph-bold ph-arrow-counter-clockwise"></i>
+              <span>Về 0</span>
+            </button>
+            <div onclick="resetStatsToZero()" class="cursor-pointer hover:opacity-80 transition" title="Bấm để đặt lại về 0">
               <p class="text-xs text-slate-400 uppercase font-semibold">Hiệp xong</p>
               <p id="stat-pomo-count" class="text-lg font-bold text-slate-800 dark:text-slate-100 mt-0.5">0</p>
             </div>
-            <div>
+            <div onclick="resetStatsToZero()" class="cursor-pointer hover:opacity-80 transition" title="Bấm để đặt lại về 0">
               <p class="text-xs text-slate-400 uppercase font-semibold">Thời gian</p>
               <p id="stat-total-minutes" class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">0 phút</p>
             </div>
@@ -1355,6 +1360,19 @@ function doPost(e) {
       document.getElementById('stat-tasks-done').innerText = doneTasks;
     }
 
+    function resetStatsToZero() {
+      if (timerState.sessionsCompleted === 0 && Math.round(timerState.totalFocusMinutes) === 0) {
+        showToast('Thống kê hiện đã ở mức 0');
+        return;
+      }
+      
+      timerState.sessionsCompleted = 0;
+      timerState.totalFocusMinutes = 0;
+      updateStatsDisplay();
+      saveData();
+      showToast('Đã đặt lại Hiệp xong & Thời gian học về 0');
+    }
+
     /* ====================================================================
      * TASKS THEO TUẦN VÀ THỨ TRONG TUẦN
      * ==================================================================== */
@@ -1373,13 +1391,17 @@ function doPost(e) {
       document.getElementById('filter-week').innerHTML = weekOpts;
       document.getElementById('new-task-week').innerHTML = weekOpts;
       
+      // Đồng bộ giá trị mặc định cho ô chọn tuần
+      document.getElementById('filter-week').value = currentRealWeek;
+      document.getElementById('new-task-week').value = currentRealWeek;
+
       // Tự động chọn đúng thứ hôm nay theo thời gian thực cho ô tạo mục tiêu mới
       const daySelect = document.getElementById('new-task-day-of-week');
       if (daySelect) {
         daySelect.value = currentRealDay;
       }
 
-      // Kích hoạt nút filter đúng thứ hôm nay
+      // Kích hoạt nút filter đúng thứ hôm nay theo thời gian thực của máy tính
       setFilterDayOfWeek(currentRealDay);
     }
 
@@ -1732,18 +1754,6 @@ function doPost(e) {
             </div>
 
             <div class="flex items-center gap-1.5 shrink-0">
-              ${
-                !task.isCompleted
-                  ? `<button onclick="setActiveTaskForTimer('${task.id}')" title="Chọn để bấm giờ" class="p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold ${
-                      isCurrentActive
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-600'
-                    } transition flex items-center gap-1">
-                      <i class="ph-bold ph-timer"></i>
-                      <span class="hidden sm:inline">${isCurrentActive ? 'Đang chạy' : 'Học bài'}</span>
-                    </button>`
-                  : ''
-              }
               <button onclick="deleteTask('${task.id}')" class="p-2 text-slate-400 hover:text-rose-500 rounded-xl transition">
                 <i class="ph-bold ph-trash"></i>
               </button>
@@ -2211,6 +2221,7 @@ function doPost(e) {
     function showToast(message) {
       const toast = document.getElementById('toast');
       const msgEl = document.getElementById('toast-msg');
+      if (!toast || !msgEl) return;
       msgEl.innerText = message;
 
       toast.classList.remove('translate-y-24', 'opacity-0');
@@ -2223,11 +2234,8 @@ function doPost(e) {
       }, 3000);
     }
 
-    function confirmCustom(message) {
-      return window.confirm(message);
-    }
-
     function escapeHtml(string) {
+      if (!string) return '';
       const div = document.createElement('div');
       div.innerText = string;
       return div.innerHTML;
@@ -2254,24 +2262,40 @@ function doPost(e) {
 
     // Window Onload Initialization
     window.onload = function() {
+      // Khởi tạo trước frame đầu tiên cho Canvas PiP để tránh lỗi CaptureStream
+      drawTimerOnPipCanvas();
+
       // Tải dữ liệu từ LocalStorage trước khi khởi tạo UI
       loadData();
       
-      // Nếu không có dữ liệu mẫu nào được load, tạo một mục tiêu mặc định
+      // Luôn lấy tuần và thứ mới nhất theo thời gian thực của máy tính khi mở web
+      const realTimeWeek = getCurrentWeekNumber();
+      const realTimeDay = getCurrentDayOfWeekCode();
+      selectedFilterWeek = realTimeWeek;
+      selectedFilterDayOfWeek = realTimeDay;
+      
+      // Nếu không có dữ liệu nào được load, tạo mục tiêu mặc định theo đúng thứ và tuần này
       if (tasks.length === 0) {
          tasks = [
-           { id: 'task-intro', title: 'Khám phá StudyFlow', week: currentWeekNum, dayOfWeek: currentDayCode, targetPomos: 1, completedPomos: 0, isCompleted: false, subtasks: [{ id: 'sub-intro', title: 'Thử đếm giờ Pomodoro', isCompleted: false }] }
+           { id: 'task-intro', title: 'Khám phá StudyFlow', week: realTimeWeek, dayOfWeek: realTimeDay, targetPomos: 1, completedPomos: 0, isCompleted: false, subtasks: [{ id: 'sub-intro', title: 'Thử đếm giờ Pomodoro', isCompleted: false }] }
          ];
          saveData();
       }
 
       // Khôi phục cài đặt trên UI
-      document.getElementById('cfg-focus').value = timerSettings.focus;
-      document.getElementById('cfg-short').value = timerSettings.shortBreak;
-      document.getElementById('cfg-sound').value = selectedSoundType;
-      document.getElementById('auto-repeat-toggle').checked = isAutoRepeatEnabled;
-      document.getElementById('settings-volume-slider').value = Math.round(currentVolume * 100);
-      document.getElementById('settings-vol-pct').innerText = `${Math.round(currentVolume * 100)}%`;
+      const cfgFocusEl = document.getElementById('cfg-focus');
+      const cfgShortEl = document.getElementById('cfg-short');
+      const cfgSoundEl = document.getElementById('cfg-sound');
+      const autoRepeatToggleEl = document.getElementById('auto-repeat-toggle');
+      const volSliderEl = document.getElementById('settings-volume-slider');
+      const volPctEl = document.getElementById('settings-vol-pct');
+
+      if (cfgFocusEl) cfgFocusEl.value = timerSettings.focus;
+      if (cfgShortEl) cfgShortEl.value = timerSettings.shortBreak;
+      if (cfgSoundEl) cfgSoundEl.value = selectedSoundType;
+      if (autoRepeatToggleEl) autoRepeatToggleEl.checked = isAutoRepeatEnabled;
+      if (volSliderEl) volSliderEl.value = Math.round(currentVolume * 100);
+      if (volPctEl) volPctEl.innerText = `${Math.round(currentVolume * 100)}%`;
 
       // Đặt lại bộ đếm giờ dựa trên settings vừa load
       modeRemainingTimes.focus = timerSettings.focus * 60;
@@ -2284,6 +2308,9 @@ function doPost(e) {
       updateTimerDisplay();
       renderTasks();
       updateStatsDisplay();
+
+      // Đảm bảo vẽ lại Canvas PiP sau khi đã load đủ dữ liệu
+      updatePipCanvas();
 
       // Kiểm tra thời gian thực định kỳ mỗi phút: nếu sang ngày/thứ mới, tự động cập nhật
       let lastCheckedDay = getCurrentDayOfWeekCode();
