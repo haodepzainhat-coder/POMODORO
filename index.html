@@ -781,6 +781,17 @@ function doGet(e) {
 
   <!-- JAVASCRIPT ĐIỀU KHIỂN TOÀN BỘ ỨNG DỤNG -->
   <script>
+    /* HÀM GỌI ICON AN TOÀN TRÊN GITHUB PAGES TRÁNH LỖI CDN CHẬM */
+    function safeRenderIcons() {
+      try {
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
+      } catch (e) {
+        console.warn("Lucide icons chưa tải xong:", e);
+      }
+    }
+
     /* HÀM TÍNH TUẦN HIỆN TẠI (ISO-8601) */
     function getCurrentWeekNumber(date = new Date()) {
       const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -855,7 +866,7 @@ function doGet(e) {
         iconEl.setAttribute('data-lucide', 'info');
         iconEl.className = 'w-4 h-4 text-blue-400';
       }
-      lucide.createIcons();
+      safeRenderIcons();
 
       toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
       toast.classList.add('opacity-100', 'translate-y-0');
@@ -1146,7 +1157,7 @@ function doGet(e) {
           btnText.textContent = 'Bắt Đầu';
           btnIcon.setAttribute('data-lucide', 'play');
         }
-        lucide.createIcons();
+        safeRenderIcons();
       }
     }
 
@@ -1577,7 +1588,7 @@ function doGet(e) {
             <p class="text-[11px] mt-1 opacity-70">Nhập vào ô phía trên để bắt đầu thêm nhiệm vụ nhé!</p>
           </div>
         `;
-        lucide.createIcons();
+        safeRenderIcons();
         return;
       }
 
@@ -1675,7 +1686,7 @@ function doGet(e) {
         container.appendChild(card);
       });
 
-      lucide.createIcons();
+      safeRenderIcons();
     }
 
     function escapeHtml(str) {
@@ -2061,7 +2072,8 @@ function doGet(e) {
           fetch(GOOGLE_SHEET_WEBAPP_URL, {
             method: 'POST',
             mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-cache',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
           }).then(() => {
             setTimeout(() => setSyncStatus(false, true), 400);
@@ -2072,12 +2084,15 @@ function doGet(e) {
       }
     }
 
-    // Tự động kéo dữ liệu từ Google Sheet về máy khi mở web
+    // Tự động kéo dữ liệu từ Google Sheet về máy khi mở web (tối ưu chạy ổn định trên GitHub Pages)
     async function loadDataFromGoogleSheet() {
       if (!GOOGLE_SHEET_WEBAPP_URL || !GOOGLE_SHEET_WEBAPP_URL.startsWith('http')) return;
       try {
         setSyncStatus(true, true);
-        const res = await fetch(GOOGLE_SHEET_WEBAPP_URL);
+        const res = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
         if (!res.ok) throw new Error("Network response not ok");
         const cloudData = await res.json();
 
@@ -2304,7 +2319,7 @@ function doGet() {
         activePreview.style.backgroundColor = currentOpt.dotColor;
       }
 
-      lucide.createIcons();
+      safeRenderIcons();
     }
 
     function toggleThemeDropdown(event) {
@@ -2364,15 +2379,27 @@ function doGet() {
 
     function dismissMobileBlocker() {
       const blocker = document.getElementById('mobile-blocker');
-      if (blocker) blocker.classList.add('hidden');
+      if (blocker) {
+        blocker.classList.add('hidden');
+        blocker.classList.remove('flex');
+      }
+      try { sessionStorage.setItem('dismiss_mobile_blocker', 'true'); } catch (e) {}
     }
 
     function checkDevice() {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const isDesktopPointer = window.matchMedia('(pointer: fine)').matches;
+      try {
+        if (sessionStorage.getItem('dismiss_mobile_blocker') === 'true') {
+          return;
+        }
+      } catch (e) {}
+
+      // Kiểm tra chính xác màn hình nhỏ thực tế thay vì user-agent để không chặn nhầm laptop trên GitHub Pages
+      const isSmallScreen = window.innerWidth < 768;
+      const isMobileUA = /Android|iPhone|iPod/i.test(navigator.userAgent);
       const blocker = document.getElementById('mobile-blocker');
+      
       if (blocker) {
-        if (isMobile && !isDesktopPointer) {
+        if (isMobileUA && isSmallScreen) {
           blocker.classList.remove('hidden');
           blocker.classList.add('flex');
         } else {
@@ -2385,7 +2412,7 @@ function doGet() {
     /* 12. TẢI DỮ LIỆU BAN ĐẦU (WINDOW LOAD) */
     window.addEventListener('load', () => {
       checkDevice();
-      lucide.createIcons();
+      safeRenderIcons();
 
       // Đọc và áp dụng màu chủ đề ưu tiên trước nhất
       const savedTheme = localStorage.getItem('studyflow_theme');
