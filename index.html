@@ -384,14 +384,8 @@
           </button>
         </div>
 
-        <!-- 3 Chỉ Số Nhỏ Dưới Đồng Hồ Kèm Nút Reset Riêng -->
-        <div class="w-full relative mt-8 pt-6 border-t border-[var(--app-border)]">
-          <!-- Nút Reset 3 chỉ số -->
-          <button onclick="resetAllStatsAndTasks()" title="Đặt lại: Hiệp xong, Thời gian & Trạng thái nhiệm vụ" class="absolute -top-3 right-0 px-2 py-1 rounded-lg bg-[var(--app-sub)] hover:bg-[var(--app-border)] border border-[var(--app-border)] text-[10px] font-bold text-[var(--app-text-muted)] hover:text-rose-400 flex items-center gap-1 transition-all shadow-sm">
-            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
-            <span>Đặt lại chỉ số</span>
-          </button>
-
+        <!-- 3 Chỉ Số Nhỏ Dưới Đồng Hồ (Tự động reset khi sang tuần mới) -->
+        <div class="w-full mt-8 pt-6 border-t border-[var(--app-border)]">
           <div class="grid grid-cols-3 gap-2 text-center">
             <div>
               <div class="text-[10px] font-extrabold text-[var(--app-text-muted)] uppercase tracking-wider">Hiệp xong</div>
@@ -1702,27 +1696,18 @@ function doGet(e) {
       if (d) d.textContent = doneCount;
     }
 
-    /* Đặt lại 3 chỉ số thống kê & trả các nhiệm vụ về trạng thái chưa xong */
-    function resetAllStatsAndTasks() {
-      // 1. Reset hiệp xong & phút tập trung
-      timerState.completedFocusCycles = 0;
-      timerState.totalFocusMinutes = 0;
-      consecutiveFocusCount = 0;
-
-      // 2. Reset trạng thái hoàn thành của toàn bộ nhiệm vụ và subtask
-      tasks.forEach(task => {
-        task.completed = false;
-        if (task.subtasks) {
-          task.subtasks.forEach(st => st.completed = false);
-        }
-      });
-
-      // 3. Cập nhật lại giao diện và lưu trữ đồng bộ
-      updateStatsUI();
-      updateMiniWeekStats();
-      renderTasks();
-      saveDataLocallyAndSync();
-      showToast("Đã đặt lại Hiệp xong, Thời gian & Nhiệm vụ về 0!", "info");
+    /* Kiểm tra và tự động reset chỉ số khi bước sang tuần mới */
+    function checkAndAutoResetNewWeek(savedWeek) {
+      const currentRealWeek = getCurrentWeekNumber();
+      if (savedWeek && savedWeek !== currentRealWeek) {
+        // Đã bước sang tuần mới => Tự động reset chỉ số hiệp & thời gian về 0
+        timerState.completedFocusCycles = 0;
+        timerState.totalFocusMinutes = 0;
+        consecutiveFocusCount = 0;
+        showToast(`Chào tuần mới (Tuần ${currentRealWeek})! Thống kê đã tự động làm mới.`, "info");
+        return true;
+      }
+      return false;
     }
 
     function updateMiniWeekStats() {
@@ -2049,7 +2034,8 @@ function doGet(e) {
         timerSettings: timerSettings,
         timerStats: {
           completedCycles: timerState.completedFocusCycles,
-          totalFocusMinutes: timerState.totalFocusMinutes
+          totalFocusMinutes: timerState.totalFocusMinutes,
+          week: getCurrentWeekNumber() // Ghi nhận tuần hiện tại của bộ thống kê
         },
         soundSettings: soundSettings,
         isAutoRepeatEnabled: isAutoRepeatEnabled,
@@ -2107,8 +2093,12 @@ function doGet(e) {
             tasks = cloudData.tasks || [];
             if (cloudData.timerSettings) timerSettings = cloudData.timerSettings;
             if (cloudData.timerStats) {
-              timerState.completedFocusCycles = cloudData.timerStats.completedCycles || 0;
-              timerState.totalFocusMinutes = cloudData.timerStats.totalFocusMinutes || 0;
+              const cloudWeek = cloudData.timerStats.week || getCurrentWeekNumber();
+              const isNewWeek = checkAndAutoResetNewWeek(cloudWeek);
+              if (!isNewWeek) {
+                timerState.completedFocusCycles = cloudData.timerStats.completedCycles || 0;
+                timerState.totalFocusMinutes = cloudData.timerStats.totalFocusMinutes || 0;
+              }
             }
             renderTasks();
             updateStatsUI();
@@ -2435,8 +2425,12 @@ function doGet() {
             modeCache.long = { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60, isRunning: false };
           }
           if (data.timerStats) {
-            timerState.completedFocusCycles = data.timerStats.completedCycles || 0;
-            timerState.totalFocusMinutes = data.timerStats.totalFocusMinutes || 0;
+            const savedWeek = data.timerStats.week || getCurrentWeekNumber();
+            const isNewWeek = checkAndAutoResetNewWeek(savedWeek);
+            if (!isNewWeek) {
+              timerState.completedFocusCycles = data.timerStats.completedCycles || 0;
+              timerState.totalFocusMinutes = data.timerStats.totalFocusMinutes || 0;
+            }
           }
           if (data.soundSettings) {
             soundSettings = data.soundSettings;
