@@ -19,6 +19,25 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+  <!-- Đọc và áp dụng Theme ngay lập tức trước khi render trang để không bị giật màu -->
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('studyflow_theme');
+        if (!saved) {
+          var raw = localStorage.getItem('studyflow_data_v2');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.theme) saved = parsed.theme;
+          }
+        }
+        if (saved) {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -36,145 +55,145 @@
       appearance: textfield;
     }
 
-    /* Các chủ đề Dark Mode tinh tế, giảm chói */
-    body[data-theme="midnight"] {
-      --app-bg: #090d16;
-      --app-card: #0f172a;
-      --app-sub: #1e293b;
-      --app-border: #334155;
-      --app-accent: #3b82f6;
-      --app-accent-hover: #2563eb;
-      --app-text: #f8fafc;
-      --app-text-muted: #94a3b8;
-      --timer-ring-focus: #3b82f6;
-      --timer-ring-break: #ea580c;
+    /* Các chủ đề Dark Mode cao cấp, êm dịu, chống mỏi mắt khi học lâu */
+    body[data-theme="midnight"], :root[data-theme="midnight"] {
+      --app-bg: #0b0f17;
+      --app-card: #111827;
+      --app-sub: #1b2436;
+      --app-border: #28354b;
+      --app-accent: #4f85e2;
+      --app-accent-hover: #3b74d4;
+      --app-text: #e2e8f0;
+      --app-text-muted: #8b9bb4;
+      --timer-ring-focus: #4f85e2;
+      --timer-ring-break: #d97746;
       --timer-number-color: #f1f5f9;
     }
 
-    body[data-theme="onyx"] {
-      --app-bg: #09090b;
-      --app-card: #121217;
-      --app-sub: #1e1e24;
-      --app-border: #2e2e38;
-      --app-accent: #8b5cf6;
-      --app-accent-hover: #7c3aed;
-      --app-text: #fafafa;
-      --app-text-muted: #b4b4c4;
-      --timer-ring-focus: #8b5cf6;
-      --timer-ring-break: #65a30d;
+    body[data-theme="onyx"], :root[data-theme="onyx"] {
+      --app-bg: #0f1015;
+      --app-card: #161720;
+      --app-sub: #20222f;
+      --app-border: #2c2f42;
+      --app-accent: #7e74d6;
+      --app-accent-hover: #6d62c9;
+      --app-text: #e4e4ed;
+      --app-text-muted: #9598b0;
+      --timer-ring-focus: #7e74d6;
+      --timer-ring-break: #5ea87a;
       --timer-number-color: #ede9fe;
     }
 
-    body[data-theme="pine"] {
-      --app-bg: #05140e;
-      --app-card: #0b241a;
-      --app-sub: #143527;
-      --app-border: #1e4d39;
-      --app-accent: #10b981;
-      --app-accent-hover: #059669;
-      --app-text: #f0fdf4;
-      --app-text-muted: #86efac;
-      --timer-ring-focus: #10b981;
-      --timer-ring-break: #e11d48;
+    body[data-theme="pine"], :root[data-theme="pine"] {
+      --app-bg: #0a1310;
+      --app-card: #101c18;
+      --app-sub: #172a24;
+      --app-border: #213d34;
+      --app-accent: #2e9b74;
+      --app-accent-hover: #248362;
+      --app-text: #e3ede8;
+      --app-text-muted: #85a89a;
+      --timer-ring-focus: #2e9b74;
+      --timer-ring-break: #c26964;
       --timer-number-color: #ecfdf5;
     }
 
-    body[data-theme="navy"] {
-      --app-bg: #050b17;
-      --app-card: #0c182c;
-      --app-sub: #13243f;
-      --app-border: #1e365d;
-      --app-accent: #0284c7;
-      --app-accent-hover: #0369a1;
-      --app-text: #f0f9ff;
-      --app-text-muted: #93c5fd;
-      --timer-ring-focus: #0284c7;
-      --timer-ring-break: #d97706;
+    body[data-theme="navy"], :root[data-theme="navy"] {
+      --app-bg: #0a101b;
+      --app-card: #101928;
+      --app-sub: #172439;
+      --app-border: #223452;
+      --app-accent: #388ec4;
+      --app-accent-hover: #297cae;
+      --app-text: #e2eaf4;
+      --app-text-muted: #889ebc;
+      --timer-ring-focus: #388ec4;
+      --timer-ring-break: #be8343;
       --timer-number-color: #f0f9ff;
     }
 
-    body[data-theme="plum"] {
-      --app-bg: #120714;
-      --app-card: #1c0f21;
-      --app-sub: #2c1633;
-      --app-border: #421e4d;
-      --app-accent: #a21caf;
-      --app-accent-hover: #86198f;
-      --app-text: #fdf4ff;
-      --app-text-muted: #f0abfc;
-      --timer-ring-focus: #a21caf;
-      --timer-ring-break: #0d9488;
+    body[data-theme="plum"], :root[data-theme="plum"] {
+      --app-bg: #130d17;
+      --app-card: #1b1320;
+      --app-sub: #271a2e;
+      --app-border: #3b2846;
+      --app-accent: #9d5ba8;
+      --app-accent-hover: #8c4a97;
+      --app-text: #f0e6f3;
+      --app-text-muted: #b097b8;
+      --timer-ring-focus: #9d5ba8;
+      --timer-ring-break: #4ea89b;
       --timer-number-color: #fdf4ff;
     }
 
-    body[data-theme="ember"] {
-      --app-bg: #140909;
-      --app-card: #221212;
-      --app-sub: #331919;
-      --app-border: #4d2626;
-      --app-accent: #e11d48;
-      --app-accent-hover: #be123c;
-      --app-text: #fff1f2;
-      --app-text-muted: #fca5a5;
-      --timer-ring-focus: #e11d48;
-      --timer-ring-break: #0284c7;
+    body[data-theme="ember"], :root[data-theme="ember"] {
+      --app-bg: #140d0e;
+      --app-card: #1c1314;
+      --app-sub: #2a1c1d;
+      --app-border: #3f282a;
+      --app-accent: #c45663;
+      --app-accent-hover: #b04653;
+      --app-text: #f3e6e7;
+      --app-text-muted: #b9979a;
+      --timer-ring-focus: #c45663;
+      --timer-ring-break: #4a8bb8;
       --timer-number-color: #fff1f2;
     }
 
-    body[data-theme="mocha"] {
-      --app-bg: #120e0c;
-      --app-card: #1f1714;
-      --app-sub: #2d221e;
-      --app-border: #42322c;
-      --app-accent: #b45309;
-      --app-accent-hover: #92400e;
-      --app-text: #fffbeb;
-      --app-text-muted: #fde68a;
-      --timer-ring-focus: #b45309;
-      --timer-ring-break: #059669;
+    body[data-theme="mocha"], :root[data-theme="mocha"] {
+      --app-bg: #13100e;
+      --app-card: #1b1714;
+      --app-sub: #27211d;
+      --app-border: #3c322c;
+      --app-accent: #aa754e;
+      --app-accent-hover: #96643f;
+      --app-text: #ede7e1;
+      --app-text-muted: #b39f90;
+      --timer-ring-focus: #aa754e;
+      --timer-ring-break: #4e9a7e;
       --timer-number-color: #fffbeb;
     }
 
-    body[data-theme="ocean"] {
-      --app-bg: #051214;
-      --app-card: #0a1f22;
-      --app-sub: #112d32;
-      --app-border: #184249;
-      --app-accent: #0f766e;
-      --app-accent-hover: #115e59;
-      --app-text: #f0fdfa;
-      --app-text-muted: #5eead4;
-      --timer-ring-focus: #0f766e;
-      --timer-ring-break: #ea580c;
+    body[data-theme="ocean"], :root[data-theme="ocean"] {
+      --app-bg: #091214;
+      --app-card: #0f1c20;
+      --app-sub: #162a30;
+      --app-border: #223f47;
+      --app-accent: #2e968f;
+      --app-accent-hover: #22827c;
+      --app-text: #e2f0ee;
+      --app-text-muted: #85aba6;
+      --timer-ring-focus: #2e968f;
+      --timer-ring-break: #c8764a;
       --timer-number-color: #f0fdfa;
     }
 
-    body[data-theme="amber"] {
-      --app-bg: #140f05;
-      --app-card: #21190a;
-      --app-sub: #302410;
-      --app-border: #453416;
-      --app-accent: #d97706;
-      --app-accent-hover: #b45309;
-      --app-text: #fffbeb;
-      --app-text-muted: #fcd34d;
-      --timer-ring-focus: #d97706;
-      --timer-ring-break: #4f46e5;
+    body[data-theme="amber"], :root[data-theme="amber"] {
+      --app-bg: #13100a;
+      --app-card: #1b170e;
+      --app-sub: #272115;
+      --app-border: #3c3321;
+      --app-accent: #b8863b;
+      --app-accent-hover: #a3732c;
+      --app-text: #eee9dc;
+      --app-text-muted: #b4a688;
+      --timer-ring-focus: #b8863b;
+      --timer-ring-break: #5c7cb8;
       --timer-number-color: #fffbeb;
     }
 
-    body[data-theme="charcoal"] {
-      --app-bg: #000000;
-      --app-card: #101010;
-      --app-sub: #1a1a1a;
-      --app-border: #282828;
-      --app-accent: #64748b;
-      --app-accent-hover: #475569;
-      --app-text: #ffffff;
-      --app-text-muted: #a3a3a3;
-      --timer-ring-focus: #64748b;
-      --timer-ring-break: #16a34a;
-      --timer-number-color: #e2e8f0;
+    body[data-theme="charcoal"], :root[data-theme="charcoal"] {
+      --app-bg: #0d0e11;
+      --app-card: #14161a;
+      --app-sub: #1d2026;
+      --app-border: #2c3039;
+      --app-accent: #687e99;
+      --app-accent-hover: #566a83;
+      --app-text: #e3e6ec;
+      --app-text-muted: #8c93a3;
+      --timer-ring-focus: #687e99;
+      --timer-ring-break: #4d9c73;
+      --timer-number-color: #f1f5f9;
     }
 
     /* Hiệu ứng nhấp nháy cho nút Kết nối Sheet */
@@ -1887,6 +1906,10 @@ function doGet(e) {
         if (backBtn) {
           backBtn.onclick = () => {
             window.focus();
+            if (win && !win.closed) {
+              win.close();
+            }
+            pipWindowInstance = null;
           };
         }
 
@@ -2173,16 +2196,16 @@ function doGet() {
 
     /* 11. ĐỔI CHỦ ĐỀ & FAVICON ĐỘNG */
     const THEME_OPTIONS = [
-      { id: 'onyx', name: 'Onyx', desc: 'Đen than chì', dotColor: '#8b5cf6', bgDot: '#09090b' },
-      { id: 'midnight', name: 'Midnight', desc: 'Đêm xanh sâu', dotColor: '#3b82f6', bgDot: '#090d16' },
-      { id: 'pine', name: 'Pine', desc: 'Rừng thông sâu', dotColor: '#10b981', bgDot: '#05140e' },
-      { id: 'navy', name: 'Navy', desc: 'Biển hải quân', dotColor: '#0284c7', bgDot: '#050b17' },
-      { id: 'plum', name: 'Plum', desc: 'Mận tím trầm', dotColor: '#a21caf', bgDot: '#120714' },
-      { id: 'ember', name: 'Ember', desc: 'Dung nham ấm', dotColor: '#e11d48', bgDot: '#140909' },
-      { id: 'mocha', name: 'Mocha', desc: 'Cà phê ấm áp', dotColor: '#b45309', bgDot: '#120e0c' },
-      { id: 'ocean', name: 'Ocean', desc: 'Biển ngọc bích', dotColor: '#0f766e', bgDot: '#051214' },
-      { id: 'amber', name: 'Amber', desc: 'Hổ phách mật', dotColor: '#d97706', bgDot: '#140f05' },
-      { id: 'charcoal', name: 'Charcoal', desc: 'AMOLED Đen tuyền', dotColor: '#64748b', bgDot: '#000000' }
+      { id: 'onyx', name: 'Onyx', desc: 'Đen than chì dịu', dotColor: '#7e74d6', bgDot: '#0f1015' },
+      { id: 'midnight', name: 'Midnight', desc: 'Đêm xanh êm', dotColor: '#4f85e2', bgDot: '#0b0f17' },
+      { id: 'pine', name: 'Pine', desc: 'Rừng thông trầm', dotColor: '#2e9b74', bgDot: '#0a1310' },
+      { id: 'navy', name: 'Navy', desc: 'Xanh biển sâu', dotColor: '#388ec4', bgDot: '#0a101b' },
+      { id: 'plum', name: 'Plum', desc: 'Mận tím êm', dotColor: '#9d5ba8', bgDot: '#130d17' },
+      { id: 'ember', name: 'Ember', desc: 'Hồng trầm ấm', dotColor: '#c45663', bgDot: '#140d0e' },
+      { id: 'mocha', name: 'Mocha', desc: 'Cà phê nâu trầm', dotColor: '#aa754e', bgDot: '#13100e' },
+      { id: 'ocean', name: 'Ocean', desc: 'Biển ngọc dịu', dotColor: '#2e968f', bgDot: '#091214' },
+      { id: 'amber', name: 'Amber', desc: 'Hổ phách ấm', dotColor: '#b8863b', bgDot: '#13100a' },
+      { id: 'charcoal', name: 'Charcoal', desc: 'Xám than trung tính', dotColor: '#687e99', bgDot: '#0d0e11' }
     ];
 
     function initCustomThemeDropdown() {
@@ -2269,10 +2292,12 @@ function doGet() {
 
     function changeTheme(themeName) {
       document.body.setAttribute('data-theme', themeName);
+      document.documentElement.setAttribute('data-theme', themeName);
       localStorage.setItem('studyflow_theme', themeName);
       updateTimerModeButtons();
       drawTimerOnPipCanvas();
       initCustomThemeDropdown(); // Render lại trạng thái checked & nhãn hiển thị
+      saveDataLocallyAndSync(); // Lưu lại thiết lập vào bộ nhớ và đồng bộ
     }
 
     function updateFavicon(mode) {
@@ -2314,6 +2339,13 @@ function doGet() {
     window.addEventListener('load', () => {
       checkDevice();
       lucide.createIcons();
+
+      // Đọc và áp dụng màu chủ đề ưu tiên trước nhất
+      const savedTheme = localStorage.getItem('studyflow_theme');
+      if (savedTheme) {
+        document.body.setAttribute('data-theme', savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
 
       // Đọc URL Google Sheet
       const savedUrl = localStorage.getItem('studyflow_sheet_url');
@@ -2362,7 +2394,7 @@ function doGet() {
             isLongBreakAutoEnabled = data.isLongBreakAutoEnabled;
             document.getElementById('toggle-long-break-auto').checked = isLongBreakAutoEnabled;
           }
-          if (data.theme) {
+          if (data.theme && !savedTheme) {
             changeTheme(data.theme);
           }
           if (data.savedMode) {
