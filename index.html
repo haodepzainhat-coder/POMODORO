@@ -814,6 +814,13 @@ function doGet(e) {
       totalFocusMinutes: 0
     };
 
+    // Bộ nhớ đệm lưu trạng thái độc lập của từng chế độ để chuyển qua lại không bị reset mất tiến độ
+    let modeCache = {
+      focus: { timeLeft: 25 * 60, totalTime: 25 * 60, isRunning: false },
+      short: { timeLeft: 5 * 60, totalTime: 5 * 60, isRunning: false },
+      long: { timeLeft: 15 * 60, totalTime: 15 * 60, isRunning: false }
+    };
+
     let timerSettings = {
       focusTime: 25,
       shortBreakTime: 5,
@@ -958,21 +965,48 @@ function doGet(e) {
     }
 
     /* 4. ĐIỀU KHIỂN ĐỒNG HỒ POMODORO */
-    function setTimerMode(mode) {
+    function setTimerMode(mode, forceReset = false) {
+      if (mode === timerState.mode && !forceReset) return;
+
+      // 1. Lưu lại tiến độ hiện tại của chế độ cũ trước khi chuyển
+      if (modeCache[timerState.mode]) {
+        modeCache[timerState.mode].timeLeft = timerState.timeLeft;
+        modeCache[timerState.mode].totalTime = timerState.totalTime;
+        modeCache[timerState.mode].isRunning = timerState.isRunning;
+      }
+
+      const wasRunning = timerState.isRunning;
       if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
       }
+
+      // 2. Chuyển sang chế độ mới
       timerState.mode = mode;
-      timerState.isRunning = false;
 
-      let minutes = timerSettings.focusTime;
-      if (mode === 'short') minutes = timerSettings.shortBreakTime;
-      if (mode === 'long') minutes = timerSettings.longBreakTime;
+      if (forceReset || !modeCache[mode]) {
+        // Đặt lại từ đầu nếu chủ động bấm Reset hoặc hết hiệp
+        let minutes = timerSettings.focusTime;
+        if (mode === 'short') minutes = timerSettings.shortBreakTime;
+        if (mode === 'long') minutes = timerSettings.longBreakTime;
 
-      timerState.timeLeft = minutes * 60;
-      timerState.totalTime = minutes * 60;
+        timerState.timeLeft = minutes * 60;
+        timerState.totalTime = minutes * 60;
+        timerState.isRunning = false;
 
+        modeCache[mode] = {
+          timeLeft: timerState.timeLeft,
+          totalTime: timerState.totalTime,
+          isRunning: false
+        };
+      } else {
+        // Khôi phục lại chính xác thời gian còn dang dở của chế độ này
+        timerState.timeLeft = modeCache[mode].timeLeft;
+        timerState.totalTime = modeCache[mode].totalTime;
+        timerState.isRunning = false; // Tạm dừng an toàn khi chuyển đổi tab
+      }
+
+      updatePlayButtonUI(timerState.isRunning);
       updateTimerUI();
       updateTimerModeButtons();
       drawTimerOnPipCanvas();
@@ -1041,13 +1075,18 @@ function doGet(e) {
         clearInterval(timerInterval);
         timerInterval = null;
       }
+      if (modeCache[timerState.mode]) {
+        modeCache[timerState.mode].timeLeft = timerState.timeLeft;
+        modeCache[timerState.mode].isRunning = false;
+      }
       updatePlayButtonUI(false);
       drawTimerOnPipCanvas();
     }
 
     function resetTimer() {
       pauseTimer();
-      setTimerMode(timerState.mode);
+      setTimerMode(timerState.mode, true); // forceReset = true: chủ động đặt lại hiệp này về đầu
+      showToast('Đã đặt lại đồng hồ của hiệp này!', 'info');
     }
 
     function handleTimerCompleted() {
@@ -1060,9 +1099,9 @@ function doGet(e) {
         // Kiểm tra xem ca tiếp theo là Nghỉ dài hay Nghỉ thường
         if (isLongBreakAutoEnabled && consecutiveFocusCount >= 4) {
           consecutiveFocusCount = 0;
-          setTimerMode('long');
+          setTimerMode('long', true);
         } else {
-          setTimerMode('short');
+          setTimerMode('short', true);
         }
 
         if (isAutoRepeatEnabled) {
@@ -1074,7 +1113,7 @@ function doGet(e) {
         updateStatsUI();
         saveDataLocallyAndSync();
 
-        setTimerMode('focus');
+        setTimerMode('focus', true);
         if (isAutoRepeatEnabled) {
           setTimeout(() => startTimer(), 1000);
         }
@@ -1130,7 +1169,25 @@ function doGet(e) {
       document.getElementById('input-short-time').value = timerSettings.shortBreakTime;
       document.getElementById('input-long-time').value = timerSettings.longBreakTime;
 
-      setTimerMode(timerState.mode);
+      // Cập nhật lại thời gian mặc định cho các chế độ nếu chế độ đó chưa bắt đầu chạy
+      ['focus', 'short', 'long'].forEach(m => {
+        let mins = timerSettings.focusTime;
+        if (m === 'short') mins = timerSettings.shortBreakTime;
+        if (m === 'long') mins = timerSettings.longBreakTime;
+
+        // Nếu chế độ chưa từng chạy hoặc đang ở trạng thái đầy đủ thì cập nhật sang thời lượng mới
+        if (modeCache[m] && modeCache[m].timeLeft === modeCache[m].totalTime) {
+          modeCache[m].timeLeft = mins * 60;
+          modeCache[m].totalTime = mins * 60;
+          if (timerState.mode === m && !timerState.isRunning && timerState.timeLeft === timerState.totalTime) {
+            timerState.timeLeft = mins * 60;
+            timerState.totalTime = mins * 60;
+            updateTimerUI();
+            drawTimerOnPipCanvas();
+          }
+        }
+      });
+
       saveDataLocallyAndSync();
     }
 
@@ -2371,6 +2428,11 @@ function doGet() {
             document.getElementById('input-focus-time').value = timerSettings.focusTime;
             document.getElementById('input-short-time').value = timerSettings.shortBreakTime;
             document.getElementById('input-long-time').value = timerSettings.longBreakTime;
+
+            // Đồng bộ modeCache theo cấu hình nạp lên
+            modeCache.focus = { timeLeft: timerSettings.focusTime * 60, totalTime: timerSettings.focusTime * 60, isRunning: false };
+            modeCache.short = { timeLeft: timerSettings.shortBreakTime * 60, totalTime: timerSettings.shortBreakTime * 60, isRunning: false };
+            modeCache.long = { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60, isRunning: false };
           }
           if (data.timerStats) {
             timerState.completedFocusCycles = data.timerStats.completedCycles || 0;
