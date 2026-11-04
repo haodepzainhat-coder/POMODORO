@@ -1644,14 +1644,22 @@ function doGet(e) {
       return val || fallback;
     }
 
+    let pipWindowInstance = null;
+
     function drawTimerOnPipCanvas() {
+      // 1. Cập nhật nếu đang dùng Document Picture-in-Picture (Cửa sổ DOM riêng biệt, không có thanh video thừa)
+      if (pipWindowInstance && !pipWindowInstance.closed) {
+        updatePipWindowDOM();
+        return;
+      }
+
+      // 2. Fallback cho Canvas video nếu dùng PiP Video kiểu cũ
       const canvas = document.getElementById('pip-canvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const w = canvas.width;
       const h = canvas.height;
 
-      // Lấy màu sắc trực tiếp từ chủ đề hiện tại
       const bgColor = getThemeComputedColor('--app-card', '#121217');
       const trackColor = getThemeComputedColor('--app-sub', '#1e1e24');
       const ringFocusColor = getThemeComputedColor('--timer-ring-focus', '#8b5cf6');
@@ -1660,18 +1668,15 @@ function doGet(e) {
       const textColor = getThemeComputedColor('--timer-number-color', '#ffffff');
       const mutedColor = getThemeComputedColor('--app-text-muted', '#a1a1aa');
 
-      // 1. Nền
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, w, h);
 
-      // 2. Vòng ray nền
       ctx.beginPath();
       ctx.arc(w / 2, h / 2, 140, 0, Math.PI * 2);
       ctx.strokeStyle = trackColor;
       ctx.lineWidth = 14;
       ctx.stroke();
 
-      // 3. Vòng tiến độ đếm lùi
       const progress = timerState.timeLeft / timerState.totalTime;
       const startAngle = -Math.PI / 2;
       const endAngle = startAngle + (Math.PI * 2 * progress);
@@ -1683,7 +1688,6 @@ function doGet(e) {
       ctx.lineCap = 'round';
       ctx.stroke();
 
-      // 4. Số phút : giây
       const minutes = Math.floor(timerState.timeLeft / 60);
       const seconds = timerState.timeLeft % 60;
       const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -1694,7 +1698,6 @@ function doGet(e) {
       ctx.textBaseline = 'middle';
       ctx.fillText(timeStr, w / 2, h / 2 - 12);
 
-      // 5. Trạng thái (TẬP TRUNG / NGHỈ NGƠI / NGHỈ DÀI)
       let label = 'TẬP TRUNG';
       if (timerState.mode === 'short') label = 'NGHỈ NGƠI';
       if (timerState.mode === 'long') label = 'NGHỈ DÀI';
@@ -1704,7 +1707,145 @@ function doGet(e) {
       ctx.fillText(label + (timerState.isRunning ? '' : ' • TẠM DỪNG'), w / 2, h / 2 + 36);
     }
 
+    function updatePipWindowDOM() {
+      if (!pipWindowInstance || pipWindowInstance.closed) return;
+      const doc = pipWindowInstance.document;
+      
+      const minutes = Math.floor(timerState.timeLeft / 60);
+      const seconds = timerState.timeLeft % 60;
+      const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
+      const timeEl = doc.getElementById('pip-time');
+      const labelEl = doc.getElementById('pip-label');
+      const btnToggle = doc.getElementById('pip-toggle-btn');
+      const btnIcon = doc.getElementById('pip-toggle-icon');
+      const ring = doc.getElementById('pip-ring');
+
+      if (timeEl) timeEl.textContent = timeStr;
+      
+      let label = 'TẬP TRUNG';
+      if (timerState.mode === 'short') label = 'NGHỈ NGƠI';
+      if (timerState.mode === 'long') label = 'NGHỈ DÀI';
+      if (labelEl) labelEl.textContent = label;
+
+      if (btnToggle && btnIcon) {
+        if (timerState.isRunning) {
+          btnIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+          btnToggle.setAttribute('title', 'Tạm dừng');
+        } else {
+          btnIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+          btnToggle.setAttribute('title', 'Tiếp tục');
+        }
+      }
+
+      if (ring) {
+        const circumference = 2 * Math.PI * 70; // 439.8
+        const progress = timerState.timeLeft / timerState.totalTime;
+        const offset = circumference * (1 - progress);
+        ring.style.strokeDashoffset = offset;
+        const ringFocus = getThemeComputedColor('--timer-ring-focus', '#8b5cf6');
+        const ringBreak = getThemeComputedColor('--timer-ring-break', '#65a30d');
+        ring.style.stroke = (timerState.mode === 'focus') ? ringFocus : ringBreak;
+      }
+    }
+
     async function togglePictureInPicture() {
+      // 1. ƯU TIÊN SỬ DỤNG DOCUMENT PICTURE-IN-PICTURE (Loại bỏ 100% thanh điều khiển video thừa của trình duyệt)
+      if ('documentPictureInPicture' in window) {
+        if (pipWindowInstance && !pipWindowInstance.closed) {
+          pipWindowInstance.close();
+          pipWindowInstance = null;
+          return;
+        }
+
+        try {
+          pipWindowInstance = await window.documentPictureInPicture.requestWindow({
+            width: 280,
+            height: 340
+          });
+
+          const currentTheme = document.body.getAttribute('data-theme') || 'onyx';
+          const bgColor = getThemeComputedColor('--app-bg', '#09090b');
+          const cardColor = getThemeComputedColor('--app-card', '#121217');
+          const textColor = getThemeComputedColor('--app-text', '#ffffff');
+          const mutedColor = getThemeComputedColor('--app-text-muted', '#a1a1aa');
+          const accentColor = getThemeComputedColor('--app-accent', '#8b5cf6');
+          const subColor = getThemeComputedColor('--app-sub', '#1e1e24');
+          const borderColor = getThemeComputedColor('--app-border', '#2e2e38');
+          const ringColor = (timerState.mode === 'focus') ? getThemeComputedColor('--timer-ring-focus', '#8b5cf6') : getThemeComputedColor('--timer-ring-break', '#65a30d');
+
+          pipWindowInstance.document.body.style.margin = '0';
+          pipWindowInstance.document.body.style.backgroundColor = bgColor;
+          pipWindowInstance.document.body.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+          pipWindowInstance.document.body.style.userSelect = 'none';
+          pipWindowInstance.document.body.style.display = 'flex';
+          pipWindowInstance.document.body.style.flexDirection = 'column';
+          pipWindowInstance.document.body.style.alignItems = 'center';
+          pipWindowInstance.document.body.style.justifyContent = 'center';
+          pipWindowInstance.document.body.style.height = '100vh';
+          pipWindowInstance.document.body.style.overflow = 'hidden';
+
+          pipWindowInstance.document.body.innerHTML = `
+            <div style="background: ${cardColor}; border: 1px solid ${borderColor}; border-radius: 24px; padding: 18px 16px; width: 88%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+              
+              <!-- Vòng đồng hồ đếm lùi -->
+              <div style="position: relative; width: 170px; height: 170px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                <svg style="width: 100%; height: 100%; transform: rotate(-90deg);" viewBox="0 0 160 160">
+                  <circle cx="80" cy="80" r="70" stroke="${subColor}" stroke-width="9" fill="none" />
+                  <circle id="pip-ring" cx="80" cy="80" r="70" stroke="${ringColor}" stroke-width="9" stroke-linecap="round" fill="none" stroke-dasharray="439.8" stroke-dashoffset="0" style="transition: stroke-dashoffset 1s linear;" />
+                </svg>
+                <div style="position: absolute; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                  <span id="pip-time" style="font-size: 36px; font-weight: 800; font-family: monospace; color: ${textColor}; letter-spacing: -1px;">25:00</span>
+                  <span id="pip-label" style="font-size: 11px; font-weight: 700; color: ${mutedColor}; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.5px;">TẬP TRUNG</span>
+                </div>
+              </div>
+
+              <!-- Chỉ có 2 NÚT: Tạm dừng / Tiếp tục & Quay về trang -->
+              <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: center;">
+                <button id="pip-toggle-btn" style="flex: 1; height: 38px; border-radius: 12px; background: ${accentColor}; border: none; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                  <svg id="pip-toggle-icon" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="none">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                </button>
+
+                <button id="pip-back-btn" title="Quay lại trang web" style="width: 38px; height: 38px; border-radius: 12px; background: ${subColor}; border: 1px solid ${borderColor}; color: ${mutedColor}; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  </svg>
+                </button>
+              </div>
+
+            </div>
+          `;
+
+          // Gán sự kiện cho 2 nút
+          const toggleBtn = pipWindowInstance.document.getElementById('pip-toggle-btn');
+          const backBtn = pipWindowInstance.document.getElementById('pip-back-btn');
+
+          if (toggleBtn) {
+            toggleBtn.onclick = () => {
+              toggleTimer();
+              updatePipWindowDOM();
+            };
+          }
+
+          if (backBtn) {
+            backBtn.onclick = () => {
+              window.focus();
+            };
+          }
+
+          updatePipWindowDOM();
+          pipWindowInstance.addEventListener('pagehide', () => {
+            pipWindowInstance = null;
+          });
+          return;
+        } catch (e) {
+          console.warn("Document PiP fallback sang Video PiP:", e);
+        }
+      }
+
+      // 2. PHƯƠNG ÁN DỰ PHÒNG: STANDARD VIDEO PICTURE-IN-PICTURE (Dành cho trình duyệt chưa có documentPictureInPicture)
       const video = document.getElementById('pip-video');
       const canvas = document.getElementById('pip-canvas');
       if (!video || !canvas) return;
@@ -1715,17 +1856,17 @@ function doGet(e) {
         } else {
           drawTimerOnPipCanvas();
           if (!video.srcObject) {
-            const stream = canvas.captureStream(15);
+            const stream = canvas.captureStream(10);
             video.srcObject = stream;
           }
           await video.play();
           await video.requestPictureInPicture();
 
-          // Thiết lập MediaSession chỉ có nút Play/Pause và Quay lại tab
+          // Thiết lập MediaSession gọn nhất chỉ có nút Play/Pause
           if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
               title: 'StudyFlow Pomodoro',
-              artist: 'Bấm nút để Bắt đầu / Tạm dừng'
+              artist: 'Bắt đầu / Tạm dừng'
             });
 
             navigator.mediaSession.setActionHandler('play', () => {
@@ -1735,6 +1876,10 @@ function doGet(e) {
             navigator.mediaSession.setActionHandler('pause', () => {
               pauseTimer();
               navigator.mediaSession.playbackState = 'paused';
+            });
+            // Gỡ bỏ tất cả các action handler tua trước/sau thừa
+            ['seekbackward', 'seekforward', 'previoustrack', 'nexttrack', 'seekto'].forEach(action => {
+              try { navigator.mediaSession.setActionHandler(action, null); } catch (e) {}
             });
           }
         }
@@ -1937,11 +2082,50 @@ function doGet() {
     return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
   }
 }`;
-      document.execCommand('copy');
-      const btnText = document.getElementById('copy-script-text');
-      if (btnText) {
-        btnText.textContent = 'Đã sao chép!';
-        setTimeout(() => btnText.textContent = 'Sao chép mã', 2000);
+
+      // Cơ chế copy an toàn 2 lớp: hỗ trợ tốt cả Clipboard API lẫn fallback textarea trong iframe
+      const showSuccessState = () => {
+        const btnText = document.getElementById('copy-script-text');
+        if (btnText) {
+          btnText.textContent = 'Đã sao chép!';
+          setTimeout(() => {
+            btnText.textContent = 'Sao chép mã';
+          }, 2500);
+        }
+        showToast('Đã sao chép mã Apps Script vào bộ nhớ tạm!', 'success');
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(code).then(() => {
+          showSuccessState();
+        }).catch(() => {
+          fallbackCopyText(code, showSuccessState);
+        });
+      } else {
+        fallbackCopyText(code, showSuccessState);
+      }
+    }
+
+    function fallbackCopyText(text, callback) {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-9999px';
+        textArea.style.left = '-9999px';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.select();
+        textArea.setSelectionRange(0, 99999);
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful && callback) {
+          callback();
+        } else {
+          showToast('Vui lòng bôi đen đoạn mã và nhấn Ctrl+C để sao chép', 'info');
+        }
+      } catch (err) {
+        showToast('Vui lòng bôi đen đoạn mã và nhấn Ctrl+C để sao chép', 'info');
       }
     }
 
