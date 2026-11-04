@@ -2462,17 +2462,19 @@ function doGet() {
           if (data.savedMode) {
             savedModeToApply = data.savedMode;
           }
-          if (data.selectedFilterWeek) {
-            selectedFilterWeek = data.selectedFilterWeek;
-          }
-          if (data.selectedFilterDayOfWeek) {
-            selectedFilterDayOfWeek = data.selectedFilterDayOfWeek;
-          }
+          // Luôn ưu tiên thời gian thực của hôm nay khi khởi chạy web, không ghi đè bằng ngày cũ đã lưu
+          selectedFilterWeek = getCurrentWeekNumber();
+          selectedFilterDayOfWeek = getCurrentDayOfWeekCode();
+
           if (data.selectedFilterStatus) {
             selectedFilterStatus = data.selectedFilterStatus;
           }
         } catch (e) {}
       }
+
+      // Đảm bảo lại tuần và thứ luôn là thời gian thực hiện tại
+      selectedFilterWeek = getCurrentWeekNumber();
+      selectedFilterDayOfWeek = getCurrentDayOfWeekCode();
 
       // Khởi tạo Custom Dropdown Theme
       initCustomThemeDropdown();
