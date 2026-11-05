@@ -819,6 +819,14 @@ function doGet(e) {
       totalFocusMinutes: 0
     };
 
+    // Lưu trữ số phút và số hiệp học chi tiết theo từng tuần: { "2026_W45": { minutes: 120, cycles: 4 } }
+    let weeklyFocusData = {};
+
+    function getWeekStorageKey(weekNum = selectedFilterWeek) {
+      const year = new Date().getFullYear();
+      return `${year}_W${weekNum}`;
+    }
+
     // Bộ nhớ đệm lưu trạng thái độc lập của từng chế độ để chuyển qua lại không bị reset mất tiến độ
     let modeCache = {
       focus: { timeLeft: 25 * 60, totalTime: 25 * 60, isRunning: false },
@@ -1062,8 +1070,17 @@ function doGet(e) {
           if (timerState.mode === 'focus') {
             if (timerState.timeLeft % 60 === 0) {
               timerState.totalFocusMinutes++;
+              
+              // Cập nhật và tích luỹ số phút vào tuần hiện tại
+              const curKey = getWeekStorageKey(currentWeekNum);
+              if (!weeklyFocusData[curKey]) {
+                weeklyFocusData[curKey] = { minutes: 0, cycles: 0 };
+              }
+              weeklyFocusData[curKey].minutes++;
+
               updateStatsUI();
               updateMiniWeekStats();
+              saveDataLocallyAndSync();
             }
           }
           updateTimerUI();
@@ -1115,7 +1132,15 @@ function doGet(e) {
       } else {
         // Hoàn tất 1 ca nghỉ ngơi (hoặc nghỉ dài) => Chính thức hoàn thành 1 Hiệp trọn vẹn
         timerState.completedFocusCycles++;
+
+        const curKey = getWeekStorageKey(currentWeekNum);
+        if (!weeklyFocusData[curKey]) {
+          weeklyFocusData[curKey] = { minutes: 0, cycles: 0 };
+        }
+        weeklyFocusData[curKey].cycles++;
+
         updateStatsUI();
+        updateMiniWeekStats();
         saveDataLocallyAndSync();
 
         setTimerMode('focus', true);
@@ -1700,25 +1725,14 @@ function doGet(e) {
       const t = document.getElementById('stat-focus-time');
       const d = document.getElementById('stat-done-tasks');
 
-      if (c) c.textContent = timerState.completedFocusCycles;
-      if (t) t.textContent = `${timerState.totalFocusMinutes} phút`;
-      
-      const doneCount = tasks.filter(task => task.completed).length;
-      if (d) d.textContent = doneCount;
-    }
+      const curKey = getWeekStorageKey(currentWeekNum);
+      const weekStats = weeklyFocusData[curKey] || { minutes: timerState.totalFocusMinutes, cycles: timerState.completedFocusCycles };
 
-    /* Kiểm tra và tự động reset chỉ số khi bước sang tuần mới */
-    function checkAndAutoResetNewWeek(savedWeek) {
-      const currentRealWeek = getCurrentWeekNumber();
-      if (savedWeek && savedWeek !== currentRealWeek) {
-        // Đã bước sang tuần mới => Tự động reset chỉ số hiệp & thời gian về 0
-        timerState.completedFocusCycles = 0;
-        timerState.totalFocusMinutes = 0;
-        consecutiveFocusCount = 0;
-        showToast(`Chào tuần mới (Tuần ${currentRealWeek})! Thống kê đã tự động làm mới.`, "info");
-        return true;
-      }
-      return false;
+      if (c) c.textContent = weekStats.cycles;
+      if (t) t.textContent = `${weekStats.minutes} phút`;
+      
+      const doneCount = tasks.filter(task => task.week === selectedFilterWeek && task.completed).length;
+      if (d) d.textContent = doneCount;
     }
 
     function updateMiniWeekStats() {
@@ -1736,7 +1750,10 @@ function doGet(e) {
         pctEl.textContent = `${pct}%`;
       }
       if (hoursEl) {
-        const hours = (timerState.totalFocusMinutes / 60).toFixed(1);
+        const key = getWeekStorageKey(selectedFilterWeek);
+        const stats = weeklyFocusData[key];
+        const mins = stats ? stats.minutes : (selectedFilterWeek === currentWeekNum ? timerState.totalFocusMinutes : 0);
+        const hours = (mins / 60).toFixed(1);
         hoursEl.textContent = `${hours}h`;
       }
     }
@@ -2040,14 +2057,26 @@ function doGet(e) {
     }
 
     function saveDataLocallyAndSync() {
+      const curKey = getWeekStorageKey(currentWeekNum);
+      if (!weeklyFocusData[curKey]) {
+        weeklyFocusData[curKey] = {
+          minutes: timerState.totalFocusMinutes,
+          cycles: timerState.completedFocusCycles
+        };
+      } else {
+        weeklyFocusData[curKey].minutes = Math.max(weeklyFocusData[curKey].minutes, timerState.totalFocusMinutes);
+        weeklyFocusData[curKey].cycles = Math.max(weeklyFocusData[curKey].cycles, timerState.completedFocusCycles);
+      }
+
       const payload = {
         tasks: tasks,
         timerSettings: timerSettings,
         timerStats: {
           completedCycles: timerState.completedFocusCycles,
           totalFocusMinutes: timerState.totalFocusMinutes,
-          week: getCurrentWeekNumber() // Ghi nhận tuần hiện tại của bộ thống kê
+          week: currentWeekNum
         },
+        weeklyFocusData: weeklyFocusData,
         soundSettings: soundSettings,
         isAutoRepeatEnabled: isAutoRepeatEnabled,
         isLongBreakAutoEnabled: isLongBreakAutoEnabled,
@@ -2096,25 +2125,34 @@ function doGet(e) {
         if (!res.ok) throw new Error("Network response not ok");
         const cloudData = await res.json();
 
-        if (cloudData && typeof cloudData === 'object' && cloudData.tasks) {
+        if (cloudData && typeof cloudData === 'object' && (cloudData.tasks || cloudData.weeklyFocusData || cloudData.timerStats)) {
           const rawLocal = localStorage.getItem('studyflow_data_v2');
           let localTime = 0;
           if (rawLocal) {
             try { localTime = JSON.parse(rawLocal).lastUpdated || 0; } catch (e) {}
           }
 
-          // Nếu dữ liệu trên đám mây mới hơn hoặc bằng local thì cập nhật
+          // Cập nhật hợp nhất an toàn dữ liệu từ đám mây
           if (!localTime || (cloudData.lastUpdated && cloudData.lastUpdated >= localTime)) {
-            tasks = cloudData.tasks || [];
+            if (cloudData.tasks) tasks = cloudData.tasks;
             if (cloudData.timerSettings) timerSettings = cloudData.timerSettings;
-            if (cloudData.timerStats) {
-              const cloudWeek = cloudData.timerStats.week || getCurrentWeekNumber();
-              const isNewWeek = checkAndAutoResetNewWeek(cloudWeek);
-              if (!isNewWeek) {
-                timerState.completedFocusCycles = cloudData.timerStats.completedCycles || 0;
-                timerState.totalFocusMinutes = cloudData.timerStats.totalFocusMinutes || 0;
-              }
+            if (cloudData.weeklyFocusData) {
+              weeklyFocusData = Object.assign({}, weeklyFocusData, cloudData.weeklyFocusData);
             }
+            
+            const curKey = getWeekStorageKey(currentWeekNum);
+            if (weeklyFocusData[curKey]) {
+              timerState.totalFocusMinutes = weeklyFocusData[curKey].minutes || 0;
+              timerState.completedFocusCycles = weeklyFocusData[curKey].cycles || 0;
+            } else if (cloudData.timerStats && cloudData.timerStats.week === currentWeekNum) {
+              timerState.completedFocusCycles = cloudData.timerStats.completedCycles || 0;
+              timerState.totalFocusMinutes = cloudData.timerStats.totalFocusMinutes || 0;
+              weeklyFocusData[curKey] = {
+                minutes: timerState.totalFocusMinutes,
+                cycles: timerState.completedFocusCycles
+              };
+            }
+
             renderTasks();
             updateStatsUI();
             updateMiniWeekStats();
@@ -2451,14 +2489,31 @@ function doGet() {
             modeCache.short = { timeLeft: timerSettings.shortBreakTime * 60, totalTime: timerSettings.shortBreakTime * 60, isRunning: false };
             modeCache.long = { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60, isRunning: false };
           }
-          if (data.timerStats) {
-            const savedWeek = data.timerStats.week || getCurrentWeekNumber();
-            const isNewWeek = checkAndAutoResetNewWeek(savedWeek);
-            if (!isNewWeek) {
-              timerState.completedFocusCycles = data.timerStats.completedCycles || 0;
-              timerState.totalFocusMinutes = data.timerStats.totalFocusMinutes || 0;
-            }
+
+          // Khôi phục bộ lưu trữ thống kê theo tuần (weeklyFocusData)
+          if (data.weeklyFocusData && typeof data.weeklyFocusData === 'object') {
+            weeklyFocusData = data.weeklyFocusData;
           }
+
+          // Nạp dữ liệu của tuần hiện tại nếu có
+          const curKey = getWeekStorageKey(currentWeekNum);
+          if (weeklyFocusData[curKey]) {
+            timerState.completedFocusCycles = weeklyFocusData[curKey].cycles || 0;
+            timerState.totalFocusMinutes = weeklyFocusData[curKey].minutes || 0;
+          } else if (data.timerStats && data.timerStats.week === currentWeekNum) {
+            timerState.completedFocusCycles = data.timerStats.completedCycles || 0;
+            timerState.totalFocusMinutes = data.timerStats.totalFocusMinutes || 0;
+            weeklyFocusData[curKey] = {
+              minutes: timerState.totalFocusMinutes,
+              cycles: timerState.completedFocusCycles
+            };
+          } else {
+            // Tuần mới chưa có dữ liệu: bắt đầu từ 0
+            timerState.completedFocusCycles = 0;
+            timerState.totalFocusMinutes = 0;
+            weeklyFocusData[curKey] = { minutes: 0, cycles: 0 };
+          }
+
           if (data.soundSettings) {
             soundSettings = data.soundSettings;
             const sSelect = document.getElementById('sound-type-selector');
@@ -2483,14 +2538,13 @@ function doGet() {
           if (data.savedMode) {
             savedModeToApply = data.savedMode;
           }
-          // Luôn ưu tiên thời gian thực của hôm nay khi khởi chạy web, không ghi đè bằng ngày cũ đã lưu
-          selectedFilterWeek = getCurrentWeekNumber();
-          selectedFilterDayOfWeek = getCurrentDayOfWeekCode();
 
           if (data.selectedFilterStatus) {
             selectedFilterStatus = data.selectedFilterStatus;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("Lỗi nạp dữ liệu local:", e);
+        }
       }
 
       // Đảm bảo lại tuần và thứ luôn là thời gian thực hiện tại
