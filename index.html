@@ -1102,6 +1102,12 @@ function doGet(e) {
       }
 
       if (timerState.timeLeft <= 0) {
+        timerState.isRunning = false;
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        updatePlayButtonUI(false);
         updateTimerUI();
         drawTimerOnPipCanvas();
         handleTimerCompleted();
@@ -1151,7 +1157,11 @@ function doGet(e) {
     }
 
     function handleTimerCompleted() {
-      pauseTimer();
+      timerState.isRunning = false;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
       elapsedFocusSeconds = 0;
       playAlarmSound();
 
