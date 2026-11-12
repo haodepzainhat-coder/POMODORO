@@ -419,9 +419,9 @@
           <div class="bg-[var(--app-sub)] border border-[var(--app-border)] rounded-2xl p-2.5 flex flex-col items-center">
             <span class="text-[11px] font-extrabold text-[var(--app-text-muted)] mb-1.5">Tập trung</span>
             <div class="flex items-center justify-between w-full gap-1">
-              <button onmousedown="startTimeHold('focus', -1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="startTimeHold('focus', -1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">-</button>
+              <button type="button" onmousedown="startTimeHold('focus', -1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="event.preventDefault(); startTimeHold('focus', -1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">-</button>
               <input type="number" id="input-focus-time" min="1" max="120" value="25" onchange="updateCustomTimes()" class="w-12 text-center bg-transparent font-extrabold text-base text-[var(--app-text)] focus:outline-none">
-              <button onmousedown="startTimeHold('focus', 1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="startTimeHold('focus', 1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">+</button>
+              <button type="button" onmousedown="startTimeHold('focus', 1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="event.preventDefault(); startTimeHold('focus', 1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">+</button>
             </div>
           </div>
 
@@ -429,9 +429,9 @@
           <div class="bg-[var(--app-sub)] border border-[var(--app-border)] rounded-2xl p-2.5 flex flex-col items-center">
             <span class="text-[11px] font-extrabold text-[var(--app-text-muted)] mb-1.5">Nghỉ ngơi</span>
             <div class="flex items-center justify-between w-full gap-1">
-              <button onmousedown="startTimeHold('short', -1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="startTimeHold('short', -1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">-</button>
+              <button type="button" onmousedown="startTimeHold('short', -1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="event.preventDefault(); startTimeHold('short', -1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">-</button>
               <input type="number" id="input-short-time" min="1" max="60" value="5" onchange="updateCustomTimes()" class="w-12 text-center bg-transparent font-extrabold text-base text-[var(--app-text)] focus:outline-none">
-              <button onmousedown="startTimeHold('short', 1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="startTimeHold('short', 1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">+</button>
+              <button type="button" onmousedown="startTimeHold('short', 1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="event.preventDefault(); startTimeHold('short', 1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">+</button>
             </div>
           </div>
 
@@ -439,9 +439,9 @@
           <div class="bg-[var(--app-sub)] border border-[var(--app-border)] rounded-2xl p-2.5 flex flex-col items-center">
             <span class="text-[11px] font-extrabold text-[var(--app-text-muted)] mb-1.5">Nghỉ dài</span>
             <div class="flex items-center justify-between w-full gap-1">
-              <button onmousedown="startTimeHold('long', -1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="startTimeHold('long', -1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">-</button>
+              <button type="button" onmousedown="startTimeHold('long', -1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="event.preventDefault(); startTimeHold('long', -1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">-</button>
               <input type="number" id="input-long-time" min="1" max="60" value="15" onchange="updateCustomTimes()" class="w-12 text-center bg-transparent font-extrabold text-base text-[var(--app-text)] focus:outline-none">
-              <button onmousedown="startTimeHold('long', 1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="startTimeHold('long', 1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">+</button>
+              <button type="button" onmousedown="startTimeHold('long', 1)" onmouseup="stopTimeHold()" onmouseleave="stopTimeHold()" ontouchstart="event.preventDefault(); startTimeHold('long', 1)" ontouchend="stopTimeHold()" class="w-7 h-7 rounded-lg bg-[var(--app-card)] hover:bg-[var(--app-border)] active:scale-95 text-[var(--app-text)] font-extrabold flex items-center justify-center border border-[var(--app-border)] transition-all select-none">+</button>
             </div>
           </div>
         </div>
@@ -605,7 +605,7 @@
   </main>
 
   <!-- 1. BẢNG HƯỚNG DẪN GIỚI THIỆU TÍNH NĂNG WEB (APP GUIDE MODAL) -->
-  <div id="app-guide-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div id="app-guide-modal" onclick="if(event.target===this) closeAppGuideModal()" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-[var(--app-card)] border border-[var(--app-border)] rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
       
       <!-- Header -->
@@ -678,7 +678,7 @@
   </div>
 
   <!-- 2. BẢNG THIẾT LẬP VÀ LIÊN KẾT GOOGLE SHEET (ONBOARDING) -->
-  <div id="onboarding-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div id="onboarding-modal" onclick="if(event.target===this) closeOnboardingModal()" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-[var(--app-card)] border border-[var(--app-border)] rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden shadow-2xl">
       
       <!-- Cố Định Đầu Bảng (Header) -->
@@ -730,7 +730,7 @@ function doGet(e) {
   try {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = doc.getSheetByName('StudyFlow');
-    var raw = sheet ? sheet.getRange(1, 1).getValue() : "{}";
+    var raw = (sheet && sheet.getRange(1, 1).getValue()) || "{}";
     return ContentService.createTextOutput(raw)
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -801,6 +801,10 @@ function doGet(e) {
       return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     }
 
+    function getISOWeeksInYear(year) {
+      return getCurrentWeekNumber(new Date(year, 11, 28));
+    }
+
     /* 1. CÁC BIẾN TRẠNG THÁI & CẤU HÌNH CỐT LÕI */
     let currentWeekNum = getCurrentWeekNumber();
     let currentDayOfWeekCode = getCurrentDayOfWeekCode();
@@ -810,6 +814,8 @@ function doGet(e) {
     let selectedFilterStatus = 'all';
 
     let timerInterval = null;
+    let timerEndTimestamp = 0;
+    let elapsedFocusSeconds = 0;
     let timerState = {
       mode: 'focus', // 'focus', 'short', 'long'
       timeLeft: 25 * 60,
@@ -855,6 +861,7 @@ function doGet(e) {
     let isSyncing = false;
     let syncDebounceTimer = null;
     let sharedAudioContext = null;
+    let toastTimeout = null;
 
     /* THÔNG BÁO TOAST THAY CHO ALERT BROWSER */
     function showToast(message, type = 'info') {
@@ -862,6 +869,11 @@ function doGet(e) {
       const msgEl = document.getElementById('toast-message');
       const iconEl = document.getElementById('toast-icon');
       if (!toast || !msgEl || !iconEl) return;
+
+      if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+      }
 
       msgEl.textContent = message;
       if (type === 'error') {
@@ -879,9 +891,10 @@ function doGet(e) {
       toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
       toast.classList.add('opacity-100', 'translate-y-0');
 
-      setTimeout(() => {
+      toastTimeout = setTimeout(() => {
         toast.classList.remove('opacity-100', 'translate-y-0');
         toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+        toastTimeout = null;
       }, 3000);
     }
 
@@ -892,14 +905,11 @@ function doGet(e) {
     }
 
     function getWeekDateRangeString(year, weekNum) {
-      const simple = new Date(year, 0, 1 + (weekNum - 1) * 7);
-      const dayOfWeek = simple.getDay();
-      const ISOweekStart = new Date(simple);
-      if (dayOfWeek <= 4) {
-        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-      } else {
-        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-      }
+      const jan4 = new Date(year, 0, 4);
+      const jan4Day = jan4.getDay() || 7;
+      const week1Monday = new Date(year, 0, 4 - (jan4Day - 1));
+      const ISOweekStart = new Date(week1Monday);
+      ISOweekStart.setDate(week1Monday.getDate() + (weekNum - 1) * 7);
       const ISOweekEnd = new Date(ISOweekStart);
       ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
 
@@ -914,7 +924,8 @@ function doGet(e) {
       select.innerHTML = '';
 
       const currentYear = new Date().getFullYear();
-      for (let i = 1; i <= 52; i++) {
+      const totalWeeks = Math.max(52, getISOWeeksInYear(currentYear));
+      for (let i = 1; i <= totalWeeks; i++) {
         const option = document.createElement('option');
         option.value = i;
         const range = getWeekDateRangeString(currentYear, i);
@@ -927,6 +938,8 @@ function doGet(e) {
     }
 
     function resetToCurrentWeekAndDay() {
+      currentWeekNum = getCurrentWeekNumber();
+      currentDayOfWeekCode = getCurrentDayOfWeekCode();
       selectedFilterWeek = currentWeekNum;
       selectedFilterDayOfWeek = currentDayOfWeekCode;
       
@@ -988,7 +1001,6 @@ function doGet(e) {
         modeCache[timerState.mode].isRunning = timerState.isRunning;
       }
 
-      const wasRunning = timerState.isRunning;
       if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
@@ -1006,6 +1018,7 @@ function doGet(e) {
         timerState.timeLeft = minutes * 60;
         timerState.totalTime = minutes * 60;
         timerState.isRunning = false;
+        if (mode === 'focus') elapsedFocusSeconds = 0;
 
         modeCache[mode] = {
           timeLeft: timerState.timeLeft,
@@ -1059,39 +1072,64 @@ function doGet(e) {
       }
     }
 
+    function syncTimerTick() {
+      if (!timerState.isRunning) return;
+
+      const remaining = Math.max(0, Math.ceil((timerEndTimestamp - Date.now()) / 1000));
+      const deltaSeconds = Math.max(0, timerState.timeLeft - remaining);
+
+      if (deltaSeconds > 0) {
+        timerState.timeLeft = remaining;
+
+        if (timerState.mode === 'focus') {
+          elapsedFocusSeconds += deltaSeconds;
+          if (elapsedFocusSeconds >= 60) {
+            const addedMinutes = Math.floor(elapsedFocusSeconds / 60);
+            elapsedFocusSeconds %= 60;
+            timerState.totalFocusMinutes += addedMinutes;
+
+            const curKey = getWeekStorageKey(currentWeekNum);
+            if (!weeklyFocusData[curKey]) {
+              weeklyFocusData[curKey] = { minutes: 0, cycles: 0 };
+            }
+            weeklyFocusData[curKey].minutes += addedMinutes;
+
+            updateStatsUI();
+            updateMiniWeekStats();
+            saveDataLocallyAndSync();
+          }
+        }
+      }
+
+      if (timerState.timeLeft <= 0) {
+        updateTimerUI();
+        drawTimerOnPipCanvas();
+        handleTimerCompleted();
+      } else {
+        updateTimerUI();
+        drawTimerOnPipCanvas();
+      }
+    }
+
     function startTimer() {
       if (timerState.isRunning) return;
+
+      // Kích hoạt AudioContext sớm ngay lúc người dùng bấm nút để tránh bị chặn chuông khi hết giờ
+      if (soundSettings.type !== 'none') {
+        getAudioContext();
+      }
+
       timerState.isRunning = true;
+      timerEndTimestamp = Date.now() + timerState.timeLeft * 1000;
       updatePlayButtonUI(true);
 
-      timerInterval = setInterval(() => {
-        if (timerState.timeLeft > 0) {
-          timerState.timeLeft--;
-          if (timerState.mode === 'focus') {
-            if (timerState.timeLeft % 60 === 0) {
-              timerState.totalFocusMinutes++;
-              
-              // Cập nhật và tích luỹ số phút vào tuần hiện tại
-              const curKey = getWeekStorageKey(currentWeekNum);
-              if (!weeklyFocusData[curKey]) {
-                weeklyFocusData[curKey] = { minutes: 0, cycles: 0 };
-              }
-              weeklyFocusData[curKey].minutes++;
-
-              updateStatsUI();
-              updateMiniWeekStats();
-              saveDataLocallyAndSync();
-            }
-          }
-          updateTimerUI();
-          drawTimerOnPipCanvas();
-        } else {
-          handleTimerCompleted();
-        }
-      }, 1000);
+      timerInterval = setInterval(syncTimerTick, 500);
     }
 
     function pauseTimer() {
+      if (timerState.isRunning) {
+        syncTimerTick();
+      }
       timerState.isRunning = false;
       if (timerInterval) {
         clearInterval(timerInterval);
@@ -1107,12 +1145,14 @@ function doGet(e) {
 
     function resetTimer() {
       pauseTimer();
+      elapsedFocusSeconds = 0;
       setTimerMode(timerState.mode, true); // forceReset = true: chủ động đặt lại hiệp này về đầu
       showToast('Đã đặt lại đồng hồ của hiệp này!', 'info');
     }
 
     function handleTimerCompleted() {
       pauseTimer();
+      elapsedFocusSeconds = 0;
       playAlarmSound();
 
       if (timerState.mode === 'focus') {
@@ -1165,7 +1205,7 @@ function doGet(e) {
       const ring = document.getElementById('timer-progress-ring');
       if (ring) {
         const circumference = 2 * Math.PI * 44; // 276.46
-        const progress = timerState.timeLeft / timerState.totalTime;
+        const progress = timerState.totalTime > 0 ? (timerState.timeLeft / timerState.totalTime) : 0;
         const offset = circumference * (1 - progress);
         ring.style.strokeDashoffset = offset;
       }
@@ -1382,13 +1422,17 @@ function doGet(e) {
     }
 
     /* 6. QUẢN LÝ MỤC TIÊU (CHECKBOX BO GÓC, HIỆU ỨNG THỊ GIÁC, KÉO THẢ) */
+    function generateUniqueId(prefix) {
+      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
     function addNewTask() {
       const input = document.getElementById('new-task-input');
       const text = input ? input.value.trim() : '';
       if (!text) return;
 
       const newTask = {
-        id: 'task_' + Date.now(),
+        id: generateUniqueId('task'),
         week: selectedFilterWeek,
         day: selectedFilterDayOfWeek === 'all' ? currentDayOfWeekCode : selectedFilterDayOfWeek,
         text: text,
@@ -1404,7 +1448,30 @@ function doGet(e) {
       saveDataLocallyAndSync();
     }
 
-    function toggleTaskDone(taskId, event) {
+    // Đẩy nhiệm vụ đã hoàn thành xuống cuối danh sách
+    function moveCompletedTaskToBottom(taskId) {
+      const idx = tasks.findIndex(t => t.id === taskId);
+      if (idx !== -1) {
+        const [doneTask] = tasks.splice(idx, 1);
+        tasks.push(doneTask);
+      }
+    }
+
+    // Đưa nhiệm vụ chưa hoàn thành trở lại phía trên các nhiệm vụ đã xong
+    function moveUncompletedTaskAboveCompleted(taskId) {
+      const idx = tasks.findIndex(t => t.id === taskId);
+      if (idx !== -1) {
+        const [reopenedTask] = tasks.splice(idx, 1);
+        const firstDoneIdx = tasks.findIndex(t => t.completed);
+        if (firstDoneIdx !== -1) {
+          tasks.splice(firstDoneIdx, 0, reopenedTask);
+        } else {
+          tasks.push(reopenedTask);
+        }
+      }
+    }
+
+    function toggleTaskDone(taskId) {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
@@ -1415,6 +1482,9 @@ function doGet(e) {
 
       if (task.completed) {
         triggerBigTaskCelebration(taskId);
+        moveCompletedTaskToBottom(taskId);
+      } else {
+        moveUncompletedTaskAboveCompleted(taskId);
       }
 
       renderTasks();
@@ -1442,7 +1512,7 @@ function doGet(e) {
 
       if (!task.subtasks) task.subtasks = [];
       task.subtasks.push({
-        id: 'sub_' + Date.now(),
+        id: generateUniqueId('sub'),
         text: text,
         completed: false
       });
@@ -1469,10 +1539,11 @@ function doGet(e) {
       }
 
       // Tự động hoàn thành task cha nếu mọi subtask đã xong
-      const allDone = task.subtasks.every(st => st.completed);
+      const allDone = task.subtasks.length > 0 && task.subtasks.every(st => st.completed);
       if (allDone && !task.completed) {
         task.completed = true;
         triggerBigTaskCelebration(taskId);
+        moveCompletedTaskToBottom(taskId);
       }
 
       renderTasks();
@@ -1550,6 +1621,10 @@ function doGet(e) {
 
     /* Kéo & Thả Sắp Xếp Mục Tiêu */
     function handleDragStart(e, taskId) {
+      if (e.target && ['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName)) {
+        e.preventDefault();
+        return;
+      }
       draggedTaskId = taskId;
       e.dataTransfer.effectAllowed = 'move';
       e.currentTarget.classList.add('opacity-40');
@@ -1605,7 +1680,12 @@ function doGet(e) {
       const countLabel = document.getElementById('filtered-task-count');
       if (countLabel) countLabel.textContent = `${filtered.length} mục tiêu`;
 
-      if (filtered.length === 0) {
+      // Luôn xếp nhiệm vụ chưa hoàn thành ở trên, đã hoàn thành tự động đẩy xuống dưới
+      const pendingTasks = filtered.filter(t => !t.completed);
+      const completedTasks = filtered.filter(t => t.completed);
+      const displayTasks = [...pendingTasks, ...completedTasks];
+
+      if (displayTasks.length === 0) {
         container.innerHTML = `
           <div class="p-8 rounded-3xl border border-dashed border-[var(--app-border)] text-center text-[var(--app-text-muted)]">
             <i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
@@ -1618,7 +1698,7 @@ function doGet(e) {
       }
 
       container.innerHTML = '';
-      filtered.forEach(task => {
+      displayTasks.forEach(task => {
         const card = document.createElement('div');
         card.id = `card-${task.id}`;
         card.draggable = true;
@@ -1640,15 +1720,15 @@ function doGet(e) {
             <div class="mt-3 pl-8 pr-1 space-y-2 border-t border-[var(--app-border)]/50 pt-2.5">
               ${task.subtasks.map(st => `
                 <div class="flex items-center justify-between group/sub py-1">
-                  <label class="flex items-center gap-2.5 cursor-pointer flex-1 group/sublbl">
+                  <div onclick="toggleSubtaskDone('${task.id}', '${st.id}', event)" class="flex items-center gap-2.5 cursor-pointer flex-1 group/sublbl">
                     <!-- Checkbox bo góc cho việc con -->
-                    <div onclick="event.stopPropagation(); toggleSubtaskDone('${task.id}', '${st.id}', event)" class="w-4 h-4 rounded-md border flex items-center justify-center transition-all ${st.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-[var(--app-border)] bg-[var(--app-sub)]'}">
+                    <div class="w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0 ${st.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-[var(--app-border)] bg-[var(--app-sub)]'}">
                       ${st.completed ? '<svg class="w-3 h-3 stroke-current stroke-2 fill-none" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
                     </div>
-                    <span onclick="toggleSubtaskDone('${task.id}', '${st.id}', event)" class="text-xs font-semibold ${st.completed ? 'line-through text-[var(--app-text-muted)] opacity-60' : 'text-[var(--app-text)] group-hover/sublbl:text-[var(--app-accent)]'} transition-colors">
+                    <span class="text-xs font-semibold ${st.completed ? 'line-through text-[var(--app-text-muted)] opacity-60' : 'text-[var(--app-text)] group-hover/sublbl:text-[var(--app-accent)]'} transition-colors">
                       ${escapeHtml(st.text)}
                     </span>
-                  </label>
+                  </div>
                   <button onclick="deleteSubtask('${task.id}', '${st.id}')" class="opacity-0 group-hover/sub:opacity-100 p-1 text-[var(--app-text-muted)] hover:text-rose-400 transition-opacity">
                     <svg class="w-3.5 h-3.5 stroke-current fill-none stroke-2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
@@ -1666,14 +1746,14 @@ function doGet(e) {
             </div>
 
             <!-- Vùng Click Tên hoặc Checkbox -->
-            <label class="flex items-center gap-3 cursor-pointer flex-1 group/tasklbl">
+            <div onclick="toggleTaskDone('${task.id}')" class="flex items-center gap-3 cursor-pointer flex-1 group/tasklbl">
               <!-- Checkbox bo góc hiện đại cho việc lớn -->
-              <div onclick="event.stopPropagation(); toggleTaskDone('${task.id}', event)" class="w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${task.completed ? 'bg-[var(--app-accent)] border-[var(--app-accent)] text-white shadow-sm' : 'border-[var(--app-border)] bg-[var(--app-sub)] group-hover/tasklbl:border-[var(--app-accent)]'}">
+              <div class="w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${task.completed ? 'bg-[var(--app-accent)] border-[var(--app-accent)] text-white shadow-sm' : 'border-[var(--app-border)] bg-[var(--app-sub)] group-hover/tasklbl:border-[var(--app-accent)]'}">
                 ${task.completed ? '<svg class="w-3.5 h-3.5 stroke-current stroke-[2.5] fill-none" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
               </div>
 
               <!-- Tên mục tiêu (Click vào cũng xong) -->
-              <div onclick="toggleTaskDone('${task.id}', event)" class="flex-1">
+              <div class="flex-1">
                 <span class="text-sm font-bold ${task.completed ? 'line-through text-[var(--app-text-muted)] opacity-60' : 'text-[var(--app-text)] group-hover/tasklbl:text-[var(--app-accent)]'} transition-colors">
                   ${escapeHtml(task.text)}
                 </span>
@@ -1683,7 +1763,7 @@ function doGet(e) {
                   </span>
                 ` : ''}
               </div>
-            </label>
+            </div>
 
             <!-- Nút Thêm Việc Con & Xóa Việc Lớn -->
             <div class="flex items-center gap-1 shrink-0">
@@ -1773,7 +1853,9 @@ function doGet(e) {
         return;
       }
 
-      // 2. Fallback cho Canvas video nếu dùng PiP Video kiểu cũ
+      // 2. Chỉ vẽ fallback Canvas khi Picture-in-Picture video thực sự đang bật
+      if (!document.pictureInPictureElement) return;
+
       const canvas = document.getElementById('pip-canvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -1797,7 +1879,7 @@ function doGet(e) {
       ctx.lineWidth = 14;
       ctx.stroke();
 
-      const progress = timerState.timeLeft / timerState.totalTime;
+      const progress = timerState.totalTime > 0 ? (timerState.timeLeft / timerState.totalTime) : 0;
       const startAngle = -Math.PI / 2;
       const endAngle = startAngle + (Math.PI * 2 * progress);
 
@@ -1860,7 +1942,7 @@ function doGet(e) {
 
       if (ring) {
         const circumference = 2 * Math.PI * 70; // 439.8
-        const progress = timerState.timeLeft / timerState.totalTime;
+        const progress = timerState.totalTime > 0 ? (timerState.timeLeft / timerState.totalTime) : 0;
         const offset = circumference * (1 - progress);
         ring.style.strokeDashoffset = offset;
         const ringFocus = getThemeComputedColor('--timer-ring-focus', '#8b5cf6');
@@ -1877,7 +1959,6 @@ function doGet(e) {
         return;
       }
 
-      const currentTheme = document.body.getAttribute('data-theme') || 'onyx';
       const bgColor = getThemeComputedColor('--app-bg', '#09090b');
       const cardColor = getThemeComputedColor('--app-card', '#121217');
       const textColor = getThemeComputedColor('--app-text', '#ffffff');
@@ -2003,7 +2084,6 @@ function doGet(e) {
       }
 
       // 2. PHƯƠNG ÁN THAY THẾ HOÀN HẢO: Mở Mini Window Popup Độc Lập
-      // Phương án này 100% không bị Youtube Player controls của trình duyệt can thiệp
       try {
         const left = Math.max(0, window.screen.availWidth - 290);
         const top = Math.max(0, window.screen.availHeight - 340);
@@ -2056,7 +2136,7 @@ function doGet(e) {
       }
     }
 
-    function saveDataLocallyAndSync() {
+    function buildLocalPayload() {
       const curKey = getWeekStorageKey(currentWeekNum);
       if (!weeklyFocusData[curKey]) {
         weeklyFocusData[curKey] = {
@@ -2068,7 +2148,7 @@ function doGet(e) {
         weeklyFocusData[curKey].cycles = Math.max(weeklyFocusData[curKey].cycles, timerState.completedFocusCycles);
       }
 
-      const payload = {
+      return {
         tasks: tasks,
         timerSettings: timerSettings,
         timerStats: {
@@ -2087,6 +2167,10 @@ function doGet(e) {
         selectedFilterStatus: selectedFilterStatus,
         lastUpdated: Date.now()
       };
+    }
+
+    function saveDataLocallyAndSync() {
+      const payload = buildLocalPayload();
 
       try {
         localStorage.setItem('studyflow_data_v2', JSON.stringify(payload));
@@ -2123,7 +2207,9 @@ function doGet(e) {
           headers: { 'Accept': 'application/json' }
         });
         if (!res.ok) throw new Error("Network response not ok");
-        const cloudData = await res.json();
+        const rawText = await res.text();
+        if (!rawText || !rawText.trim()) return;
+        const cloudData = JSON.parse(rawText);
 
         if (cloudData && typeof cloudData === 'object' && (cloudData.tasks || cloudData.weeklyFocusData || cloudData.timerStats)) {
           const rawLocal = localStorage.getItem('studyflow_data_v2');
@@ -2134,10 +2220,55 @@ function doGet(e) {
 
           // Cập nhật hợp nhất an toàn dữ liệu từ đám mây
           if (!localTime || (cloudData.lastUpdated && cloudData.lastUpdated >= localTime)) {
-            if (cloudData.tasks) tasks = cloudData.tasks;
-            if (cloudData.timerSettings) timerSettings = cloudData.timerSettings;
+            if (Array.isArray(cloudData.tasks)) tasks = cloudData.tasks;
+            if (cloudData.timerSettings) {
+              timerSettings = cloudData.timerSettings;
+              const fInp = document.getElementById('input-focus-time');
+              const sInp = document.getElementById('input-short-time');
+              const lInp = document.getElementById('input-long-time');
+              if (fInp) fInp.value = timerSettings.focusTime;
+              if (sInp) sInp.value = timerSettings.shortBreakTime;
+              if (lInp) lInp.value = timerSettings.longBreakTime;
+
+              if (!timerState.isRunning) {
+                modeCache.focus = { timeLeft: timerSettings.focusTime * 60, totalTime: timerSettings.focusTime * 60, isRunning: false };
+                modeCache.short = { timeLeft: timerSettings.shortBreakTime * 60, totalTime: timerSettings.shortBreakTime * 60, isRunning: false };
+                modeCache.long = { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60, isRunning: false };
+                if (timerState.timeLeft === timerState.totalTime) {
+                  setTimerMode(timerState.mode, true);
+                }
+              }
+            }
             if (cloudData.weeklyFocusData) {
               weeklyFocusData = Object.assign({}, weeklyFocusData, cloudData.weeklyFocusData);
+            }
+            if (cloudData.soundSettings) {
+              soundSettings = cloudData.soundSettings;
+              const sSelect = document.getElementById('sound-type-selector');
+              const sVol = document.getElementById('sound-volume-slider');
+              const sLbl = document.getElementById('sound-volume-label');
+              const wrapper = document.getElementById('sound-controls-wrapper');
+              if (sSelect) sSelect.value = soundSettings.type;
+              if (sVol) sVol.value = soundSettings.volume;
+              if (sLbl) sLbl.textContent = `${soundSettings.volume}%`;
+              if (wrapper) wrapper.classList.toggle('hidden', soundSettings.type === 'none');
+            }
+            if (cloudData.isAutoRepeatEnabled !== undefined) {
+              isAutoRepeatEnabled = cloudData.isAutoRepeatEnabled;
+              const cb = document.getElementById('toggle-auto-repeat');
+              if (cb) cb.checked = isAutoRepeatEnabled;
+            }
+            if (cloudData.isLongBreakAutoEnabled !== undefined) {
+              isLongBreakAutoEnabled = cloudData.isLongBreakAutoEnabled;
+              const cb = document.getElementById('toggle-long-break-auto');
+              if (cb) cb.checked = isLongBreakAutoEnabled;
+            }
+            if (cloudData.theme) {
+              document.body.setAttribute('data-theme', cloudData.theme);
+              document.documentElement.setAttribute('data-theme', cloudData.theme);
+              localStorage.setItem('studyflow_theme', cloudData.theme);
+              initCustomThemeDropdown();
+              updateTimerModeButtons();
             }
             
             const curKey = getWeekStorageKey(currentWeekNum);
@@ -2153,6 +2284,10 @@ function doGet(e) {
               };
             }
 
+            try {
+              localStorage.setItem('studyflow_data_v2', JSON.stringify(buildLocalPayload()));
+            } catch (e) {}
+
             renderTasks();
             updateStatsUI();
             updateMiniWeekStats();
@@ -2165,6 +2300,13 @@ function doGet(e) {
         setSyncStatus(false, true);
       }
     }
+
+    // Đồng bộ lại ngay khi người dùng quay lại tab đang chạy đồng hồ
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && timerState.isRunning) {
+        syncTimerTick();
+      }
+    });
 
     // Chặn người dùng tắt tab khi spinner đang quay lưu dữ liệu
     window.addEventListener('beforeunload', (e) => {
@@ -2231,20 +2373,24 @@ function doGet(e) {
     var sheet = doc.getSheetByName('StudyFlow') || doc.insertSheet('StudyFlow');
     sheet.clear();
     sheet.getRange(1, 1).setValue(JSON.stringify(data));
-    return ContentService.createTextOutput(JSON.stringify({status: 'success'})).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({status: 'error', message: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({status: 'error', message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-function doGet() {
+function doGet(e) {
   try {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = doc.getSheetByName('StudyFlow');
-    var raw = sheet ? sheet.getRange(1, 1).getValue() : "{}";
-    return ContentService.createTextOutput(raw).setMimeType(ContentService.MimeType.JSON);
+    var raw = (sheet && sheet.getRange(1, 1).getValue()) || "{}";
+    return ContentService.createTextOutput(raw)
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({error: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }`;
 
@@ -2561,7 +2707,7 @@ function doGet() {
       }
       updateDayPillsUI();
       setFilterStatus(selectedFilterStatus);
-      setTimerMode(savedModeToApply);
+      setTimerMode(savedModeToApply, true);
       updateStatsUI();
       updateMiniWeekStats();
       drawTimerOnPipCanvas();
@@ -2571,8 +2717,14 @@ function doGet() {
         loadDataFromGoogleSheet();
       }
 
-      // Phím tắt Space để Bắt đầu/Tạm dừng Pomodoro
+      // Phím tắt Space để Bắt đầu/Tạm dừng Pomodoro & Esc để đóng modal
       window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeAppGuideModal();
+          closeOnboardingModal();
+          closeThemeDropdown();
+          return;
+        }
         const isGuideOpen = !document.getElementById('app-guide-modal')?.classList.contains('hidden');
         const isOnboardOpen = !document.getElementById('onboarding-modal')?.classList.contains('hidden');
         if (e.code === 'Space' && !isGuideOpen && !isOnboardOpen && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'TEXTAREA') {
