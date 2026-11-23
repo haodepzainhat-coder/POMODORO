@@ -384,6 +384,22 @@
           </button>
         </div>
 
+        <!-- Thanh Theo Dõi Chu Kỳ Nghỉ Dài, Tua Nhanh & Nút Reset Riêng -->
+        <div class="w-full mt-5 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[var(--app-sub)]/70 border border-[var(--app-border)]">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="adjustLongBreakCounter(-1)" title="Lùi 1 hiệp" class="w-5 h-5 rounded-md bg-[var(--app-card)] hover:bg-[var(--app-border)] border border-[var(--app-border)] text-[11px] font-extrabold text-[var(--app-text-muted)] hover:text-[var(--app-text)] flex items-center justify-center transition-colors">-</button>
+              <div id="long-break-dots" class="flex items-center gap-1.5 px-1 shrink-0"></div>
+              <button type="button" onclick="adjustLongBreakCounter(1)" title="Tua thêm 1 hiệp" class="w-5 h-5 rounded-md bg-[var(--app-card)] hover:bg-[var(--app-border)] border border-[var(--app-border)] text-[11px] font-extrabold text-[var(--app-text-muted)] hover:text-[var(--app-text)] flex items-center justify-center transition-colors">+</button>
+            </div>
+            <span id="long-break-status-text" class="text-[11px] font-bold text-[var(--app-text-muted)] truncate">Chu kỳ: 0/4 hiệp</span>
+          </div>
+          <button type="button" onclick="resetLongBreakCounter()" title="Đặt lại bộ đếm hiệp nghỉ dài về 0 (không ảnh hưởng đồng hồ)" class="px-2.5 py-1 rounded-xl bg-[var(--app-card)] hover:bg-[var(--app-border)] border border-[var(--app-border)] text-[10px] font-extrabold text-[var(--app-text-muted)] hover:text-[var(--app-text)] flex items-center gap-1 transition-colors shrink-0">
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+            <span>Đặt lại</span>
+          </button>
+        </div>
+
         <!-- 3 Chỉ Số Nhỏ Dưới Đồng Hồ (Tự động reset khi sang tuần mới) -->
         <div class="w-full mt-8 pt-6 border-t border-[var(--app-border)]">
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -454,7 +470,7 @@
           </label>
           <label class="flex items-center justify-between cursor-pointer group">
             <span class="text-xs font-bold text-[var(--app-text)] group-hover:text-[var(--app-accent)] transition-colors">Tự chuyển sang Nghỉ dài sau 4 hiệp</span>
-            <input type="checkbox" id="toggle-long-break-auto" onchange="toggleLongBreakAuto(this.checked)" class="w-4 h-4 rounded text-[var(--app-accent)] accent-[var(--app-accent)] cursor-pointer">
+            <input type="checkbox" id="toggle-long-break-auto" checked onchange="toggleLongBreakAuto(this.checked)" class="w-4 h-4 rounded text-[var(--app-accent)] accent-[var(--app-accent)] cursor-pointer">
           </label>
         </div>
       </div>
@@ -472,6 +488,10 @@
         <div class="mb-3">
           <select id="sound-type-selector" onchange="handleSoundTypeChange(this.value)" class="w-full bg-[var(--app-sub)] border border-[var(--app-border)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--app-text)] focus:outline-none focus:ring-1 focus:ring-[var(--app-accent)] cursor-pointer">
             <option value="zen">🔔 Chuông thiền ngân vang (Zen Chime)</option>
+            <option value="crystal">✨ Chuông pha lê trong trẻo (Crystal Chime)</option>
+            <option value="windchime">🎐 Chuông gió ba nốt (Wind Chime)</option>
+            <option value="schoolbell">🛎️ Chuông báo giờ ngân đôi (Double Bell)</option>
+            <option value="harp">🎶 Hợp âm đàn hạc êm dịu (Soft Harp)</option>
             <option value="marimba">🎵 Giai điệu Marimba vui tươi</option>
             <option value="bell">🕰️ Tiếng chuông cổ điển (Classic Bell)</option>
             <option value="beep">⚡ Âm thanh số hiện đại (Digital Beep)</option>
@@ -847,8 +867,8 @@ function doGet(e) {
     };
 
     let isAutoRepeatEnabled = false;
-    let isLongBreakAutoEnabled = false;
-    let consecutiveFocusCount = 0; // Đếm số ca tập trung để kích hoạt nghỉ dài sau 4 hiệp
+    let isLongBreakAutoEnabled = true;
+    let consecutiveFocusCount = 0; // Đếm số hiệp tập trung đã xong trong chu kỳ 4 hiệp (0..3)
 
     let soundSettings = {
       type: 'zen', // 'zen', 'marimba', 'bell', 'beep', 'none'
@@ -1035,6 +1055,7 @@ function doGet(e) {
       updatePlayButtonUI(timerState.isRunning);
       updateTimerUI();
       updateTimerModeButtons();
+      updateLongBreakCounterUI();
       drawTimerOnPipCanvas();
       saveDataLocallyAndSync();
     }
@@ -1112,6 +1133,9 @@ function doGet(e) {
         drawTimerOnPipCanvas();
         handleTimerCompleted();
       } else {
+        if (deltaSeconds > 0) {
+          saveLocalStateOnly();
+        }
         updateTimerUI();
         drawTimerOnPipCanvas();
       }
@@ -1128,6 +1152,7 @@ function doGet(e) {
       timerState.isRunning = true;
       timerEndTimestamp = Date.now() + timerState.timeLeft * 1000;
       updatePlayButtonUI(true);
+      saveLocalStateOnly();
 
       timerInterval = setInterval(syncTimerTick, 500);
     }
@@ -1147,13 +1172,84 @@ function doGet(e) {
       }
       updatePlayButtonUI(false);
       drawTimerOnPipCanvas();
+      saveLocalStateOnly();
     }
 
     function resetTimer() {
       pauseTimer();
       elapsedFocusSeconds = 0;
-      setTimerMode(timerState.mode, true); // forceReset = true: chủ động đặt lại hiệp này về đầu
-      showToast('Đã đặt lại đồng hồ của hiệp này!', 'info');
+      // Chỉ đặt lại đồng hồ của hiệp hiện tại, KHÔNG reset bộ đếm hiệp nghỉ dài (consecutiveFocusCount)
+      setTimerMode(timerState.mode, true);
+      showToast('Đã đặt lại đồng hồ hiệp này (giữ nguyên đếm hiệp nghỉ dài)!', 'info');
+    }
+
+    function setLongBreakCounter(count) {
+      const next = Math.max(0, Math.min(4, count));
+      if (next > 0 && !isLongBreakAutoEnabled) {
+        isLongBreakAutoEnabled = true;
+        const cb = document.getElementById('toggle-long-break-auto');
+        if (cb) cb.checked = true;
+      }
+      if (next === 4) {
+        // Đủ 4 hiệp Pomodoro -> Vào thẳng Nghỉ dài và reset bộ đếm cho chu kỳ mới
+        consecutiveFocusCount = 0;
+        pauseTimer();
+        setTimerMode('long', true);
+        showToast('Đủ 4 hiệp Pomodoro! Đã chuyển sang Nghỉ dài.', 'success');
+      } else {
+        consecutiveFocusCount = next;
+        updateLongBreakCounterUI();
+        saveDataLocallyAndSync();
+      }
+    }
+
+    function adjustLongBreakCounter(delta) {
+      const target = Math.max(0, Math.min(3, consecutiveFocusCount + delta));
+      setLongBreakCounter(target);
+    }
+
+    function resetLongBreakCounter() {
+      consecutiveFocusCount = 0;
+      updateLongBreakCounterUI();
+      saveDataLocallyAndSync();
+      showToast('Đã đặt lại chu kỳ Nghỉ dài về 0/4!', 'info');
+    }
+
+    function updateLongBreakCounterUI() {
+      const dotsEl = document.getElementById('long-break-dots');
+      const textEl = document.getElementById('long-break-status-text');
+      const displayCount = Math.max(0, Math.min(3, consecutiveFocusCount));
+      if (dotsEl) {
+        let dotsHtml = '';
+        for (let i = 1; i <= 4; i++) {
+          const isFilled = timerState.mode === 'long' ? true : (i <= displayCount);
+          const titleText = i === 4 ? 'Chuyển ngay sang Nghỉ dài (4/4)' : `Đặt sẵn đã xong ${i}/4 hiệp`;
+          dotsHtml += `<button type="button" onclick="setLongBreakCounter(${i})" title="${titleText}" class="w-3 h-3 rounded-full transition-all cursor-pointer hover:scale-125 ${
+            isFilled
+              ? (timerState.mode === 'long'
+                  ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50 scale-105'
+                  : 'bg-[var(--app-accent)] shadow-sm shadow-[var(--app-accent)]/50 scale-105')
+              : 'bg-[var(--app-card)] border border-[var(--app-border)] hover:border-[var(--app-accent)]'
+          }"></button>`;
+        }
+        dotsEl.innerHTML = dotsHtml;
+      }
+      if (textEl) {
+        if (timerState.mode === 'long') {
+          textEl.textContent = 'Đang Nghỉ dài (Chu kỳ mới: 0/4)';
+          textEl.className = 'text-[11px] font-bold text-emerald-400 truncate';
+        } else if (!isLongBreakAutoEnabled) {
+          textEl.textContent = `Đã xong ${displayCount}/4 hiệp (Tự nghỉ dài: Tắt)`;
+          textEl.className = 'text-[11px] font-bold text-[var(--app-text-muted)] truncate';
+        } else if (displayCount === 3) {
+          textEl.textContent = 'Đã xong 3/4 • Xong hiệp này sẽ Nghỉ dài!';
+          textEl.className = 'text-[11px] font-bold text-amber-400 truncate';
+        } else {
+          const remaining = 4 - displayCount;
+          textEl.textContent = `Đã xong ${displayCount}/4 • Còn ${remaining} hiệp tới Nghỉ dài`;
+          textEl.className = 'text-[11px] font-bold text-[var(--app-text-muted)] truncate';
+        }
+      }
     }
 
     function handleTimerCompleted() {
@@ -1168,13 +1264,20 @@ function doGet(e) {
       if (timerState.mode === 'focus') {
         consecutiveFocusCount++;
         
-        // Kiểm tra xem ca tiếp theo là Nghỉ dài hay Nghỉ thường
-        if (isLongBreakAutoEnabled && consecutiveFocusCount >= 4) {
+        // Đúng chuẩn Pomodoro: Sau 4 hiệp Tập trung -> Nghỉ dài, rồi reset bộ đếm về 0
+        if (consecutiveFocusCount >= 4) {
           consecutiveFocusCount = 0;
-          setTimerMode('long', true);
+          if (isLongBreakAutoEnabled) {
+            setTimerMode('long', true);
+            showToast('Hoàn thành 4 hiệp Pomodoro! Chuyển sang Nghỉ dài.', 'success');
+          } else {
+            setTimerMode('short', true);
+          }
         } else {
           setTimerMode('short', true);
         }
+        updateLongBreakCounterUI();
+        saveDataLocallyAndSync();
 
         if (isAutoRepeatEnabled) {
           setTimeout(() => startTimer(), 1000);
@@ -1191,6 +1294,7 @@ function doGet(e) {
 
         updateStatsUI();
         updateMiniWeekStats();
+        updateLongBreakCounterUI();
         saveDataLocallyAndSync();
 
         setTimerMode('focus', true);
@@ -1322,6 +1426,7 @@ function doGet(e) {
 
     function toggleLongBreakAuto(checked) {
       isLongBreakAutoEnabled = checked;
+      updateLongBreakCounterUI();
       saveDataLocallyAndSync();
     }
 
@@ -1407,6 +1512,68 @@ function doGet(e) {
           osc.connect(gainNode);
           osc.start();
           osc.stop(ctx.currentTime + 1.5);
+        } else if (soundSettings.type === 'crystal') {
+          // Chuông pha lê trong trẻo
+          [1046.5, 2093.0, 3139.5].forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const cGain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            cGain.gain.setValueAtTime(vol / (idx + 1), ctx.currentTime);
+            cGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2.2 - idx * 0.3);
+            osc.connect(cGain);
+            cGain.connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 2.3);
+          });
+        } else if (soundSettings.type === 'windchime') {
+          // Chuông gió ba nốt pentatonic
+          [1046.5, 1318.5, 1567.98].forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const wGain = ctx.createGain();
+            osc.type = 'sine';
+            const startAt = ctx.currentTime + idx * 0.18;
+            osc.frequency.setValueAtTime(freq, startAt);
+            wGain.gain.setValueAtTime(0.001, startAt);
+            wGain.gain.linearRampToValueAtTime(vol * 0.85, startAt + 0.02);
+            wGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 1.6);
+            osc.connect(wGain);
+            wGain.connect(ctx.destination);
+            osc.start(startAt);
+            osc.stop(startAt + 1.7);
+          });
+        } else if (soundSettings.type === 'schoolbell') {
+          // Chuông báo giờ ngân đôi
+          [0, 0.45].forEach(offset => {
+            [880, 1318.5].forEach((freq, idx) => {
+              const osc = ctx.createOscillator();
+              const sGain = ctx.createGain();
+              osc.type = idx === 0 ? 'sine' : 'triangle';
+              const startAt = ctx.currentTime + offset;
+              osc.frequency.setValueAtTime(freq, startAt);
+              sGain.gain.setValueAtTime(vol * (idx === 0 ? 0.9 : 0.35), startAt);
+              sGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.8);
+              osc.connect(sGain);
+              sGain.connect(ctx.destination);
+              osc.start(startAt);
+              osc.stop(startAt + 0.85);
+            });
+          });
+        } else if (soundSettings.type === 'harp') {
+          // Hợp âm đàn hạc êm dịu
+          [523.25, 659.25, 783.99, 987.77, 1046.5].forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const hGain = ctx.createGain();
+            osc.type = 'triangle';
+            const startAt = ctx.currentTime + idx * 0.09;
+            osc.frequency.setValueAtTime(freq, startAt);
+            hGain.gain.setValueAtTime(vol * 0.65, startAt);
+            hGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 1.5);
+            osc.connect(hGain);
+            hGain.connect(ctx.destination);
+            osc.start(startAt);
+            osc.stop(startAt + 1.6);
+          });
         } else if (soundSettings.type === 'beep') {
           // Âm thanh số
           [0, 0.15, 0.3].forEach(delay => {
@@ -2158,6 +2325,21 @@ function doGet(e) {
         weeklyFocusData[curKey].cycles = Math.max(weeklyFocusData[curKey].cycles, timerState.completedFocusCycles);
       }
 
+      const activeTimeLeft = timerState.isRunning
+        ? Math.max(0, Math.ceil((timerEndTimestamp - Date.now()) / 1000))
+        : timerState.timeLeft;
+
+      const modeCacheSnapshot = {
+        focus: { ...(modeCache.focus || { timeLeft: timerSettings.focusTime * 60, totalTime: timerSettings.focusTime * 60 }), isRunning: false },
+        short: { ...(modeCache.short || { timeLeft: timerSettings.shortBreakTime * 60, totalTime: timerSettings.shortBreakTime * 60 }), isRunning: false },
+        long: { ...(modeCache.long || { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60 }), isRunning: false }
+      };
+      modeCacheSnapshot[timerState.mode] = {
+        timeLeft: activeTimeLeft,
+        totalTime: timerState.totalTime,
+        isRunning: false
+      };
+
       return {
         tasks: tasks,
         timerSettings: timerSettings,
@@ -2170,6 +2352,17 @@ function doGet(e) {
         soundSettings: soundSettings,
         isAutoRepeatEnabled: isAutoRepeatEnabled,
         isLongBreakAutoEnabled: isLongBreakAutoEnabled,
+        consecutiveFocusCount: consecutiveFocusCount,
+        savedTimerProgress: {
+          mode: timerState.mode,
+          timeLeft: activeTimeLeft,
+          totalTime: timerState.totalTime,
+          isRunning: timerState.isRunning,
+          elapsedFocusSeconds: elapsedFocusSeconds,
+          consecutiveFocusCount: consecutiveFocusCount,
+          savedAt: Date.now()
+        },
+        modeCache: modeCacheSnapshot,
         theme: document.body.getAttribute('data-theme') || 'onyx',
         savedMode: timerState.mode,
         selectedFilterWeek: selectedFilterWeek,
@@ -2177,6 +2370,12 @@ function doGet(e) {
         selectedFilterStatus: selectedFilterStatus,
         lastUpdated: Date.now()
       };
+    }
+
+    function saveLocalStateOnly() {
+      try {
+        localStorage.setItem('studyflow_data_v2', JSON.stringify(buildLocalPayload()));
+      } catch (e) {}
     }
 
     function saveDataLocallyAndSync() {
@@ -2273,6 +2472,10 @@ function doGet(e) {
               const cb = document.getElementById('toggle-long-break-auto');
               if (cb) cb.checked = isLongBreakAutoEnabled;
             }
+            if (typeof cloudData.consecutiveFocusCount === 'number' && cloudData.consecutiveFocusCount >= 0) {
+              consecutiveFocusCount = Math.min(3, cloudData.consecutiveFocusCount);
+            }
+            updateLongBreakCounterUI();
             if (cloudData.theme) {
               document.body.setAttribute('data-theme', cloudData.theme);
               document.documentElement.setAttribute('data-theme', cloudData.theme);
@@ -2318,8 +2521,14 @@ function doGet(e) {
       }
     });
 
+    // Lưu ngay trạng thái đồng hồ & cài đặt khi lỡ tay đóng tab hoặc tải lại trang
+    window.addEventListener('pagehide', () => {
+      saveLocalStateOnly();
+    });
+
     // Chặn người dùng tắt tab khi spinner đang quay lưu dữ liệu
     window.addEventListener('beforeunload', (e) => {
+      saveLocalStateOnly();
       if (isSyncing) {
         e.preventDefault();
         e.returnValue = 'Dữ liệu đang được đồng bộ lên Google Sheet, bạn có chắc chắn muốn rời đi?';
@@ -2629,6 +2838,8 @@ function doGet(e) {
       // Đọc dữ liệu local
       const rawData = localStorage.getItem('studyflow_data_v2');
       let savedModeToApply = 'focus';
+      let hasSavedTimerProgress = false;
+      let restoredPartialSession = false;
 
       if (rawData) {
         try {
@@ -2644,6 +2855,43 @@ function doGet(e) {
             modeCache.focus = { timeLeft: timerSettings.focusTime * 60, totalTime: timerSettings.focusTime * 60, isRunning: false };
             modeCache.short = { timeLeft: timerSettings.shortBreakTime * 60, totalTime: timerSettings.shortBreakTime * 60, isRunning: false };
             modeCache.long = { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60, isRunning: false };
+          }
+
+          if (data.modeCache && typeof data.modeCache === 'object') {
+            ['focus', 'short', 'long'].forEach(m => {
+              const mc = data.modeCache[m];
+              if (mc && typeof mc.timeLeft === 'number' && mc.timeLeft > 0 && typeof mc.totalTime === 'number' && mc.totalTime > 0) {
+                modeCache[m] = { timeLeft: mc.timeLeft, totalTime: mc.totalTime, isRunning: false };
+              }
+            });
+          }
+
+          if (typeof data.consecutiveFocusCount === 'number' && data.consecutiveFocusCount >= 0) {
+            consecutiveFocusCount = Math.min(3, data.consecutiveFocusCount);
+          }
+
+          if (data.savedTimerProgress && typeof data.savedTimerProgress === 'object') {
+            const p = data.savedTimerProgress;
+            if (p.mode && ['focus', 'short', 'long'].includes(p.mode)) {
+              savedModeToApply = p.mode;
+            }
+            if (typeof p.consecutiveFocusCount === 'number' && p.consecutiveFocusCount >= 0) {
+              consecutiveFocusCount = Math.min(3, p.consecutiveFocusCount);
+            }
+            if (typeof p.elapsedFocusSeconds === 'number' && p.elapsedFocusSeconds >= 0) {
+              elapsedFocusSeconds = p.elapsedFocusSeconds;
+            }
+            if (typeof p.timeLeft === 'number' && p.timeLeft > 0 && typeof p.totalTime === 'number' && p.totalTime > 0) {
+              modeCache[savedModeToApply] = {
+                timeLeft: p.timeLeft,
+                totalTime: p.totalTime,
+                isRunning: false
+              };
+              hasSavedTimerProgress = true;
+              if (p.timeLeft < p.totalTime) {
+                restoredPartialSession = true;
+              }
+            }
           }
 
           // Khôi phục bộ lưu trữ thống kê theo tuần (weeklyFocusData)
@@ -2717,10 +2965,25 @@ function doGet(e) {
       }
       updateDayPillsUI();
       setFilterStatus(selectedFilterStatus);
-      setTimerMode(savedModeToApply, true);
+      if (hasSavedTimerProgress && modeCache[savedModeToApply]) {
+        timerState.mode = savedModeToApply;
+        timerState.timeLeft = modeCache[savedModeToApply].timeLeft;
+        timerState.totalTime = modeCache[savedModeToApply].totalTime;
+        timerState.isRunning = false;
+        updatePlayButtonUI(false);
+        updateTimerUI();
+        updateTimerModeButtons();
+      } else {
+        setTimerMode(savedModeToApply, true);
+      }
+      updateLongBreakCounterUI();
       updateStatsUI();
       updateMiniWeekStats();
       drawTimerOnPipCanvas();
+
+      if (restoredPartialSession) {
+        showToast('Đã khôi phục đúng thời gian và cài đặt phiên học trước đó!', 'info');
+      }
 
       // Nếu đã có cấu hình Google Sheet => Tải dữ liệu đám mây
       if (GOOGLE_SHEET_WEBAPP_URL) {
