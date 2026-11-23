@@ -733,11 +733,40 @@
           </button>
           <pre class="overflow-x-auto pr-24 select-all">function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var rawBody = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
+    var data = JSON.parse(rawBody);
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = doc.getSheetByName('StudyFlow') || doc.insertSheet('StudyFlow');
-    sheet.clear();
-    sheet.getRange(1, 1).setValue(JSON.stringify(data));
+
+    // Tạo dòng tiêu đề nếu sheet mới hoặc đang ở dạng cũ
+    if (sheet.getLastRow() === 0 || String(sheet.getRange(1, 1).getValue()).charAt(0) === '{') {
+      if (sheet.getLastRow() > 0) sheet.clear();
+      sheet.appendRow(['Thời gian lưu', 'Chủ đề', 'Hiệp xong', 'Phút học tuần', 'Số mục tiêu', 'Dữ liệu JSON']);
+    }
+
+    // Thêm dòng mới thay vì ghi đè vào 1 ô
+    var now = new Date();
+    var cycles = (data.timerStats && data.timerStats.completedCycles) ? data.timerStats.completedCycles : 0;
+    var minutes = (data.timerStats && data.timerStats.totalFocusMinutes) ? data.timerStats.totalFocusMinutes : 0;
+    var taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0;
+    var theme = data.theme || 'onyx';
+
+    sheet.appendRow([now.toISOString(), theme, cycles, minutes, taskCount, JSON.stringify(data)]);
+
+    // Tự động xóa các dòng cũ hơn 30 ngày (duyệt từ dưới lên)
+    var cutoff = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = dates.length - 1; i >= 0; i--) {
+        var cellDate = dates[i][0];
+        var t = (cellDate instanceof Date) ? cellDate.getTime() : new Date(cellDate).getTime();
+        if (!isNaN(t) && t < cutoff) {
+          sheet.deleteRow(i + 2);
+        }
+      }
+    }
+
     return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -750,7 +779,21 @@ function doGet(e) {
   try {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = doc.getSheetByName('StudyFlow');
-    var raw = (sheet && sheet.getRange(1, 1).getValue()) || "{}";
+    if (!sheet || sheet.getLastRow() === 0) {
+      return ContentService.createTextOutput("{}")
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var lastRow = sheet.getLastRow();
+    var raw = "{}";
+    if (lastRow === 1) {
+      var a1 = String(sheet.getRange(1, 1).getValue() || "");
+      raw = a1.charAt(0) === '{' ? a1 : "{}";
+    } else {
+      var cellVal = sheet.getRange(lastRow, 6).getValue();
+      raw = (cellVal && String(cellVal).trim() !== "") ? String(cellVal) : "{}";
+    }
+
     return ContentService.createTextOutput(raw)
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -2293,9 +2336,12 @@ function doGet(e) {
       }
 
       if (dot && text) {
-        if (isConnected) {
+        if (isConnected === 'error') {
+          dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+          text.textContent = 'Lỗi kết nối';
+        } else if (isConnected) {
           dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-          text.textContent = isSync ? 'Đang lưu...' : 'Đã kết nối';
+          text.textContent = isSync ? 'Đang đồng bộ...' : 'Đã kết nối';
         } else {
           dot.className = 'w-2 h-2 rounded-full bg-neutral-500';
           text.textContent = 'Google Sheet';
@@ -2378,7 +2424,34 @@ function doGet(e) {
       } catch (e) {}
     }
 
-    function saveDataLocallyAndSync() {
+    async function pushPayloadToSheet(payload) {
+      if (!GOOGLE_SHEET_WEBAPP_URL || !GOOGLE_SHEET_WEBAPP_URL.startsWith('http')) return false;
+      setSyncStatus(true, true);
+      try {
+        const res = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+          method: 'POST',
+          cache: 'no-cache',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const rawText = await res.text();
+        let parsed = null;
+        try { parsed = JSON.parse(rawText); } catch (e) {}
+        if (!parsed || parsed.status !== 'success') {
+          throw new Error(parsed && parsed.message ? parsed.message : 'Phản hồi không hợp lệ');
+        }
+        setSyncStatus(false, true);
+        return true;
+      } catch (err) {
+        console.warn('Lỗi ghi Google Sheet:', err);
+        setSyncStatus(false, 'error');
+        return false;
+      }
+    }
+
+    function saveDataLocallyAndSync(immediate = false) {
       const payload = buildLocalPayload();
 
       try {
@@ -2390,45 +2463,49 @@ function doGet(e) {
         if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
         setSyncStatus(true, true);
 
+        const delay = immediate ? 0 : 1200;
         syncDebounceTimer = setTimeout(() => {
-          fetch(GOOGLE_SHEET_WEBAPP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            cache: 'no-cache',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-          }).then(() => {
-            setTimeout(() => setSyncStatus(false, true), 400);
-          }).catch(() => {
-            setSyncStatus(false, true);
-          });
-        }, 1200);
+          pushPayloadToSheet(buildLocalPayload());
+        }, delay);
       }
     }
 
     // Tự động kéo dữ liệu từ Google Sheet về máy khi mở web (tối ưu chạy ổn định trên GitHub Pages)
-    async function loadDataFromGoogleSheet() {
-      if (!GOOGLE_SHEET_WEBAPP_URL || !GOOGLE_SHEET_WEBAPP_URL.startsWith('http')) return;
+    async function loadDataFromGoogleSheet(forceUseCloudIfEmptyLocal = false) {
+      if (!GOOGLE_SHEET_WEBAPP_URL || !GOOGLE_SHEET_WEBAPP_URL.startsWith('http')) return 'no_url';
       try {
         setSyncStatus(true, true);
         const res = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
           method: 'GET',
-          headers: { 'Accept': 'application/json' }
+          cache: 'no-cache',
+          redirect: 'follow'
         });
         if (!res.ok) throw new Error("Network response not ok");
         const rawText = await res.text();
-        if (!rawText || !rawText.trim()) return;
+        if (!rawText || !rawText.trim()) {
+          setSyncStatus(false, true);
+          return 'empty';
+        }
         const cloudData = JSON.parse(rawText);
+        if (cloudData && cloudData.error) {
+          throw new Error(cloudData.error);
+        }
 
-        if (cloudData && typeof cloudData === 'object' && (cloudData.tasks || cloudData.weeklyFocusData || cloudData.timerStats)) {
+        if (cloudData && typeof cloudData === 'object' && (cloudData.tasks || cloudData.weeklyFocusData || cloudData.timerStats || cloudData.timerSettings)) {
           const rawLocal = localStorage.getItem('studyflow_data_v2');
           let localTime = 0;
+          let hasMeaningfulLocal = false;
           if (rawLocal) {
-            try { localTime = JSON.parse(rawLocal).lastUpdated || 0; } catch (e) {}
+            try {
+              const parsedLocal = JSON.parse(rawLocal);
+              localTime = parsedLocal.lastUpdated || 0;
+              hasMeaningfulLocal = (Array.isArray(parsedLocal.tasks) && parsedLocal.tasks.length > 0) ||
+                (parsedLocal.timerStats && (parsedLocal.timerStats.totalFocusMinutes > 0 || parsedLocal.timerStats.completedCycles > 0));
+            } catch (e) {}
           }
 
-          // Cập nhật hợp nhất an toàn dữ liệu từ đám mây
-          if (!localTime || (cloudData.lastUpdated && cloudData.lastUpdated >= localTime)) {
+          // Trên máy mới (chưa có dữ liệu) hoặc cloud mới hơn -> nạp dữ liệu từ Sheet
+          if ((forceUseCloudIfEmptyLocal && !hasMeaningfulLocal) || !localTime || (cloudData.lastUpdated && cloudData.lastUpdated >= localTime)) {
             if (Array.isArray(cloudData.tasks)) tasks = cloudData.tasks;
             if (cloudData.timerSettings) {
               timerSettings = cloudData.timerSettings;
@@ -2501,16 +2578,40 @@ function doGet(e) {
               localStorage.setItem('studyflow_data_v2', JSON.stringify(buildLocalPayload()));
             } catch (e) {}
 
+            if (cloudData.savedTimerProgress && typeof cloudData.savedTimerProgress === 'object' && !timerState.isRunning) {
+              const p = cloudData.savedTimerProgress;
+              if (p.mode && ['focus', 'short', 'long'].includes(p.mode)) {
+                timerState.mode = p.mode;
+              }
+              if (typeof p.timeLeft === 'number' && p.timeLeft > 0 && typeof p.totalTime === 'number' && p.totalTime > 0) {
+                timerState.timeLeft = p.timeLeft;
+                timerState.totalTime = p.totalTime;
+                modeCache[timerState.mode] = { timeLeft: p.timeLeft, totalTime: p.totalTime, isRunning: false };
+                updateTimerUI();
+                updateTimerModeButtons();
+              }
+            }
+
+            try {
+              localStorage.setItem('studyflow_data_v2', JSON.stringify(buildLocalPayload()));
+            } catch (e) {}
+
             renderTasks();
             updateStatsUI();
             updateMiniWeekStats();
-            showToast("Đã đồng bộ dữ liệu mới nhất từ Google Sheet!", "success");
+            drawTimerOnPipCanvas();
+            showToast("Đã tải dữ liệu từ Google Sheet thành công!", "success");
           }
+          setSyncStatus(false, true);
+          return 'loaded';
         }
-      } catch (err) {
-        console.warn("Không thể kéo dữ liệu từ Sheet (hoặc Sheet trống):", err);
-      } finally {
         setSyncStatus(false, true);
+        return 'empty';
+      } catch (err) {
+        console.warn("Không thể kéo dữ liệu từ Sheet:", err);
+        setSyncStatus(false, 'error');
+        showToast("Không đọc được Google Sheet! Hãy kiểm tra link /exec và quyền Deploy: Bất kỳ ai (Anyone).", "error");
+        return 'error';
       }
     }
 
@@ -2561,11 +2662,11 @@ function doGet(e) {
       if (m) m.classList.add('hidden');
     }
 
-    function saveAndConnectSheet() {
+    async function saveAndConnectSheet() {
       const input = document.getElementById('script-url-input');
       const url = input ? input.value.trim() : '';
-      if (!url || !url.startsWith('http')) {
-        showToast('Vui lòng dán link Web App bắt đầu bằng https://script.google.com/...', 'error');
+      if (!url || !url.startsWith('https://script.google.com/') || !url.endsWith('/exec')) {
+        showToast('Link chưa đúng! Hãy dán link Web App có dạng https://script.google.com/macros/s/.../exec', 'error');
         return;
       }
 
@@ -2573,10 +2674,19 @@ function doGet(e) {
       localStorage.setItem('studyflow_sheet_url', url);
       closeOnboardingModal();
       updateReconnectBtnVisibility();
-      setSyncStatus(false, true);
-      showToast('Đã kết nối thành công với Google Sheet!', 'success');
-      saveDataLocallyAndSync();
-      loadDataFromGoogleSheet();
+
+      // Kéo dữ liệu từ Sheet về TRƯỚC để không bị máy mới ghi đè trống lên dữ liệu cũ
+      const loadStatus = await loadDataFromGoogleSheet(true);
+      if (loadStatus === 'empty') {
+        const ok = await pushPayloadToSheet(buildLocalPayload());
+        if (ok) {
+          showToast('Đã kết nối và khởi tạo dữ liệu lên Google Sheet!', 'success');
+        } else {
+          showToast('Chưa ghi được vào Sheet! Kiểm tra lại quyền Deploy (Tôi / Bất kỳ ai).', 'error');
+        }
+      } else if (loadStatus === 'loaded') {
+        // Đã tải dữ liệu từ cloud thành công
+      }
     }
 
     function skipOnboardingForNow() {
@@ -2587,11 +2697,40 @@ function doGet(e) {
     function copyAppsScriptCode() {
       const code = `function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var rawBody = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
+    var data = JSON.parse(rawBody);
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = doc.getSheetByName('StudyFlow') || doc.insertSheet('StudyFlow');
-    sheet.clear();
-    sheet.getRange(1, 1).setValue(JSON.stringify(data));
+
+    // Tạo dòng tiêu đề nếu sheet mới hoặc đang ở dạng cũ
+    if (sheet.getLastRow() === 0 || String(sheet.getRange(1, 1).getValue()).charAt(0) === '{') {
+      if (sheet.getLastRow() > 0) sheet.clear();
+      sheet.appendRow(['Thời gian lưu', 'Chủ đề', 'Hiệp xong', 'Phút học tuần', 'Số mục tiêu', 'Dữ liệu JSON']);
+    }
+
+    // Thêm dòng mới thay vì ghi đè vào 1 ô
+    var now = new Date();
+    var cycles = (data.timerStats && data.timerStats.completedCycles) ? data.timerStats.completedCycles : 0;
+    var minutes = (data.timerStats && data.timerStats.totalFocusMinutes) ? data.timerStats.totalFocusMinutes : 0;
+    var taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0;
+    var theme = data.theme || 'onyx';
+
+    sheet.appendRow([now.toISOString(), theme, cycles, minutes, taskCount, JSON.stringify(data)]);
+
+    // Tự động xóa các dòng cũ hơn 30 ngày (duyệt từ dưới lên)
+    var cutoff = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = dates.length - 1; i >= 0; i--) {
+        var cellDate = dates[i][0];
+        var t = (cellDate instanceof Date) ? cellDate.getTime() : new Date(cellDate).getTime();
+        if (!isNaN(t) && t < cutoff) {
+          sheet.deleteRow(i + 2);
+        }
+      }
+    }
+
     return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -2604,7 +2743,21 @@ function doGet(e) {
   try {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = doc.getSheetByName('StudyFlow');
-    var raw = (sheet && sheet.getRange(1, 1).getValue()) || "{}";
+    if (!sheet || sheet.getLastRow() === 0) {
+      return ContentService.createTextOutput("{}")
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var lastRow = sheet.getLastRow();
+    var raw = "{}";
+    if (lastRow === 1) {
+      var a1 = String(sheet.getRange(1, 1).getValue() || "");
+      raw = a1.charAt(0) === '{' ? a1 : "{}";
+    } else {
+      var cellVal = sheet.getRange(lastRow, 6).getValue();
+      raw = (cellVal && String(cellVal).trim() !== "") ? String(cellVal) : "{}";
+    }
+
     return ContentService.createTextOutput(raw)
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
