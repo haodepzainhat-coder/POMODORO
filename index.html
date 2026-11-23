@@ -736,36 +736,58 @@
     var rawBody = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
     var data = JSON.parse(rawBody);
     var doc = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = doc.getSheetByName('StudyFlow') || doc.insertSheet('StudyFlow');
 
-    // Tạo dòng tiêu đề nếu sheet mới hoặc đang ở dạng cũ
-    if (sheet.getLastRow() === 0 || String(sheet.getRange(1, 1).getValue()).charAt(0) === '{') {
-      if (sheet.getLastRow() > 0) sheet.clear();
-      sheet.appendRow(['Thời gian lưu', 'Chủ đề', 'Hiệp xong', 'Phút học tuần', 'Số mục tiêu', 'Dữ liệu JSON']);
+    // 1. Tab MucTieu: Moi muc tieu nam 1 hang rieng, tach cot ro rang
+    var taskSheet = doc.getSheetByName('MucTieu') || doc.insertSheet('MucTieu');
+    taskSheet.clear();
+    var taskRows = [['ID', 'Tuần', 'Thứ', 'Nội dung mục tiêu', 'Trạng thái', 'Mục tiêu con']];
+    var tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    for (var i = 0; i < tasks.length; i++) {
+      var t = tasks[i];
+      taskRows.push([
+        t.id || '',
+        t.week || '',
+        t.day || '',
+        t.text || '',
+        t.completed ? 'Đã xong' : 'Chưa xong',
+        JSON.stringify(Array.isArray(t.subtasks) ? t.subtasks : [])
+      ]);
     }
+    taskSheet.getRange(1, 1, taskRows.length, 6).setValues(taskRows);
+    taskSheet.setFrozenRows(1);
 
-    // Thêm dòng mới thay vì ghi đè vào 1 ô
-    var now = new Date();
-    var cycles = (data.timerStats && data.timerStats.completedCycles) ? data.timerStats.completedCycles : 0;
-    var minutes = (data.timerStats && data.timerStats.totalFocusMinutes) ? data.timerStats.totalFocusMinutes : 0;
-    var taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0;
-    var theme = data.theme || 'onyx';
-
-    sheet.appendRow([now.toISOString(), theme, cycles, minutes, taskCount, JSON.stringify(data)]);
-
-    // Tự động xóa các dòng cũ hơn 30 ngày (duyệt từ dưới lên)
-    var cutoff = now.getTime() - (30 * 24 * 60 * 60 * 1000);
-    var lastRow = sheet.getLastRow();
-    if (lastRow >= 2) {
-      var dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      for (var i = dates.length - 1; i >= 0; i--) {
-        var cellDate = dates[i][0];
-        var t = (cellDate instanceof Date) ? cellDate.getTime() : new Date(cellDate).getTime();
-        if (!isNaN(t) && t < cutoff) {
-          sheet.deleteRow(i + 2);
-        }
-      }
+    // 2. Tab ThongKeTuan: Moi tuan 1 hang rieng
+    var statSheet = doc.getSheetByName('ThongKeTuan') || doc.insertSheet('ThongKeTuan');
+    statSheet.clear();
+    var statRows = [['Mã tuần', 'Số hiệp xong', 'Phút học']];
+    var wData = data.weeklyFocusData || {};
+    var wKeys = Object.keys(wData);
+    for (var j = 0; j < wKeys.length; j++) {
+      var k = wKeys[j];
+      statRows.push([k, wData[k].cycles || 0, wData[k].minutes || 0]);
     }
+    statSheet.getRange(1, 1, statRows.length, 3).setValues(statRows);
+    statSheet.setFrozenRows(1);
+
+    // 3. Tab CaiDat: Moi thiet lap 1 hang rieng (tranh don vao 1 o bi tran)
+    var cfgSheet = doc.getSheetByName('CaiDat') || doc.insertSheet('CaiDat');
+    cfgSheet.clear();
+    var cfgRows = [
+      ['Thiết lập', 'Giá trị'],
+      ['timerSettings', JSON.stringify(data.timerSettings || {})],
+      ['timerStats', JSON.stringify(data.timerStats || {})],
+      ['soundSettings', JSON.stringify(data.soundSettings || {})],
+      ['isAutoRepeatEnabled', String(!!data.isAutoRepeatEnabled)],
+      ['isLongBreakAutoEnabled', String(data.isLongBreakAutoEnabled !== false)],
+      ['consecutiveFocusCount', String(data.consecutiveFocusCount || 0)],
+      ['theme', String(data.theme || 'onyx')],
+      ['savedMode', String(data.savedMode || 'focus')],
+      ['savedTimerProgress', JSON.stringify(data.savedTimerProgress || {})],
+      ['modeCache', JSON.stringify(data.modeCache || {})],
+      ['lastUpdated', String(data.lastUpdated || Date.now())]
+    ];
+    cfgSheet.getRange(1, 1, cfgRows.length, 2).setValues(cfgRows);
+    cfgSheet.setFrozenRows(1);
 
     return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
       .setMimeType(ContentService.MimeType.JSON);
@@ -778,23 +800,72 @@
 function doGet(e) {
   try {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = doc.getSheetByName('StudyFlow');
-    if (!sheet || sheet.getLastRow() === 0) {
-      return ContentService.createTextOutput("{}")
-        .setMimeType(ContentService.MimeType.JSON);
+    var taskSheet = doc.getSheetByName('MucTieu');
+    var statSheet = doc.getSheetByName('ThongKeTuan');
+    var cfgSheet = doc.getSheetByName('CaiDat');
+
+    // Tuong thich nguoc neu truoc do tung luu o tab StudyFlow cu
+    if (!taskSheet && !cfgSheet) {
+      var oldSheet = doc.getSheetByName('StudyFlow');
+      if (oldSheet && oldSheet.getLastRow() > 0) {
+        var lastR = oldSheet.getLastRow();
+        var oldRaw = lastR === 1 ? oldSheet.getRange(1, 1).getValue() : oldSheet.getRange(lastR, 6).getValue();
+        if (oldRaw && String(oldRaw).trim().charAt(0) === '{') {
+          return ContentService.createTextOutput(String(oldRaw)).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+      return ContentService.createTextOutput("{}").setMimeType(ContentService.MimeType.JSON);
     }
 
-    var lastRow = sheet.getLastRow();
-    var raw = "{}";
-    if (lastRow === 1) {
-      var a1 = String(sheet.getRange(1, 1).getValue() || "");
-      raw = a1.charAt(0) === '{' ? a1 : "{}";
-    } else {
-      var cellVal = sheet.getRange(lastRow, 6).getValue();
-      raw = (cellVal && String(cellVal).trim() !== "") ? String(cellVal) : "{}";
+    var result = { tasks: [], weeklyFocusData: {} };
+
+    if (taskSheet && taskSheet.getLastRow() >= 2) {
+      var tVals = taskSheet.getRange(2, 1, taskSheet.getLastRow() - 1, 6).getValues();
+      for (var i = 0; i < tVals.length; i++) {
+        if (!tVals[i][0] && !tVals[i][3]) continue;
+        var subs = [];
+        try { subs = JSON.parse(tVals[i][5] || '[]'); } catch (ex) {}
+        result.tasks.push({
+          id: String(tVals[i][0]),
+          week: Number(tVals[i][1]) || 1,
+          day: String(tVals[i][2] || 't2'),
+          text: String(tVals[i][3] || ''),
+          completed: tVals[i][4] === 'Đã xong',
+          subtasks: subs
+        });
+      }
     }
 
-    return ContentService.createTextOutput(raw)
+    if (statSheet && statSheet.getLastRow() >= 2) {
+      var sVals = statSheet.getRange(2, 1, statSheet.getLastRow() - 1, 3).getValues();
+      for (var j = 0; j < sVals.length; j++) {
+        if (!sVals[j][0]) continue;
+        result.weeklyFocusData[String(sVals[j][0])] = {
+          cycles: Number(sVals[j][1]) || 0,
+          minutes: Number(sVals[j][2]) || 0
+        };
+      }
+    }
+
+    if (cfgSheet && cfgSheet.getLastRow() >= 2) {
+      var cVals = cfgSheet.getRange(2, 1, cfgSheet.getLastRow() - 1, 2).getValues();
+      for (var k = 0; k < cVals.length; k++) {
+        var key = String(cVals[k][0] || '');
+        var val = String(cVals[k][1] || '');
+        if (!key) continue;
+        if (key === 'timerSettings' || key === 'timerStats' || key === 'soundSettings' || key === 'savedTimerProgress' || key === 'modeCache') {
+          try { result[key] = JSON.parse(val); } catch (ex) {}
+        } else if (key === 'isAutoRepeatEnabled' || key === 'isLongBreakAutoEnabled') {
+          result[key] = (val === 'true');
+        } else if (key === 'consecutiveFocusCount' || key === 'lastUpdated') {
+          result[key] = Number(val) || 0;
+        } else {
+          result[key] = val;
+        }
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({error: err.toString()}))
@@ -822,6 +893,16 @@ function doGet(e) {
           <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" class="flex-1 bg-[var(--app-card)] border border-[var(--app-border)] rounded-xl px-3.5 py-2.5 text-xs font-mono text-[var(--app-text)] focus:outline-none focus:ring-1 focus:ring-[var(--app-accent)]">
           <button onclick="saveAndConnectSheet()" class="px-5 py-2.5 rounded-xl bg-[var(--app-accent)] text-white text-xs font-extrabold hover:opacity-90 transition-opacity shrink-0">
             Lưu & Kết nối
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="downloadFromSheetManual()" class="py-2.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-extrabold text-emerald-300 flex items-center justify-center gap-1.5 transition-colors">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Tải dữ liệu từ Sheet về máy</span>
+          </button>
+          <button type="button" onclick="uploadToSheetManual()" class="py-2.5 px-3 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-xs font-extrabold text-blue-300 flex items-center justify-center gap-1.5 transition-colors">
+            <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+            <span>Đẩy dữ liệu máy lên Sheet</span>
           </button>
         </div>
         <button onclick="skipOnboardingForNow()" class="w-full py-2.5 rounded-xl bg-[var(--app-card)] hover:bg-[var(--app-border)] border border-[var(--app-border)] text-xs font-bold text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors">
@@ -2471,7 +2552,7 @@ function doGet(e) {
     }
 
     // Tự động kéo dữ liệu từ Google Sheet về máy khi mở web (tối ưu chạy ổn định trên GitHub Pages)
-    async function loadDataFromGoogleSheet(forceUseCloudIfEmptyLocal = false) {
+    async function loadDataFromGoogleSheet(forceUseCloudIfEmptyLocal = false, forceOverwriteLocal = false) {
       if (!GOOGLE_SHEET_WEBAPP_URL || !GOOGLE_SHEET_WEBAPP_URL.startsWith('http')) return 'no_url';
       try {
         setSyncStatus(true, true);
@@ -2505,7 +2586,7 @@ function doGet(e) {
           }
 
           // Trên máy mới (chưa có dữ liệu) hoặc cloud mới hơn -> nạp dữ liệu từ Sheet
-          if ((forceUseCloudIfEmptyLocal && !hasMeaningfulLocal) || !localTime || (cloudData.lastUpdated && cloudData.lastUpdated >= localTime)) {
+          if (forceOverwriteLocal || (forceUseCloudIfEmptyLocal && !hasMeaningfulLocal) || !localTime || (cloudData.lastUpdated && cloudData.lastUpdated >= localTime)) {
             if (Array.isArray(cloudData.tasks)) tasks = cloudData.tasks;
             if (cloudData.timerSettings) {
               timerSettings = cloudData.timerSettings;
@@ -2689,6 +2770,43 @@ function doGet(e) {
       }
     }
 
+    async function downloadFromSheetManual() {
+      const input = document.getElementById('script-url-input');
+      const url = input ? input.value.trim() : GOOGLE_SHEET_WEBAPP_URL;
+      if (!url || !url.startsWith('https://script.google.com/') || !url.endsWith('/exec')) {
+        showToast('Hãy dán link Web App (/exec) hợp lệ trước khi tải!', 'error');
+        return;
+      }
+      GOOGLE_SHEET_WEBAPP_URL = url;
+      localStorage.setItem('studyflow_sheet_url', url);
+      updateReconnectBtnVisibility();
+      const status = await loadDataFromGoogleSheet(true, true);
+      if (status === 'loaded') {
+        closeOnboardingModal();
+      } else if (status === 'empty') {
+        showToast('Google Sheet hiện chưa có dữ liệu để tải về!', 'info');
+      }
+    }
+
+    async function uploadToSheetManual() {
+      const input = document.getElementById('script-url-input');
+      const url = input ? input.value.trim() : GOOGLE_SHEET_WEBAPP_URL;
+      if (!url || !url.startsWith('https://script.google.com/') || !url.endsWith('/exec')) {
+        showToast('Hãy dán link Web App (/exec) hợp lệ trước khi đẩy dữ liệu!', 'error');
+        return;
+      }
+      GOOGLE_SHEET_WEBAPP_URL = url;
+      localStorage.setItem('studyflow_sheet_url', url);
+      updateReconnectBtnVisibility();
+      const ok = await pushPayloadToSheet(buildLocalPayload());
+      if (ok) {
+        showToast('Đã lưu toàn bộ dữ liệu từ máy lên Google Sheet!', 'success');
+        closeOnboardingModal();
+      } else {
+        showToast('Không đẩy được lên Sheet! Kiểm tra lại quyền Deploy (Tôi / Bất kỳ ai).', 'error');
+      }
+    }
+
     function skipOnboardingForNow() {
       closeOnboardingModal();
       updateReconnectBtnVisibility();
@@ -2700,36 +2818,58 @@ function doGet(e) {
     var rawBody = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
     var data = JSON.parse(rawBody);
     var doc = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = doc.getSheetByName('StudyFlow') || doc.insertSheet('StudyFlow');
 
-    // Tạo dòng tiêu đề nếu sheet mới hoặc đang ở dạng cũ
-    if (sheet.getLastRow() === 0 || String(sheet.getRange(1, 1).getValue()).charAt(0) === '{') {
-      if (sheet.getLastRow() > 0) sheet.clear();
-      sheet.appendRow(['Thời gian lưu', 'Chủ đề', 'Hiệp xong', 'Phút học tuần', 'Số mục tiêu', 'Dữ liệu JSON']);
+    // 1. Tab MucTieu: Moi muc tieu nam 1 hang rieng, tach cot ro rang
+    var taskSheet = doc.getSheetByName('MucTieu') || doc.insertSheet('MucTieu');
+    taskSheet.clear();
+    var taskRows = [['ID', 'Tuần', 'Thứ', 'Nội dung mục tiêu', 'Trạng thái', 'Mục tiêu con']];
+    var tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    for (var i = 0; i < tasks.length; i++) {
+      var t = tasks[i];
+      taskRows.push([
+        t.id || '',
+        t.week || '',
+        t.day || '',
+        t.text || '',
+        t.completed ? 'Đã xong' : 'Chưa xong',
+        JSON.stringify(Array.isArray(t.subtasks) ? t.subtasks : [])
+      ]);
     }
+    taskSheet.getRange(1, 1, taskRows.length, 6).setValues(taskRows);
+    taskSheet.setFrozenRows(1);
 
-    // Thêm dòng mới thay vì ghi đè vào 1 ô
-    var now = new Date();
-    var cycles = (data.timerStats && data.timerStats.completedCycles) ? data.timerStats.completedCycles : 0;
-    var minutes = (data.timerStats && data.timerStats.totalFocusMinutes) ? data.timerStats.totalFocusMinutes : 0;
-    var taskCount = Array.isArray(data.tasks) ? data.tasks.length : 0;
-    var theme = data.theme || 'onyx';
-
-    sheet.appendRow([now.toISOString(), theme, cycles, minutes, taskCount, JSON.stringify(data)]);
-
-    // Tự động xóa các dòng cũ hơn 30 ngày (duyệt từ dưới lên)
-    var cutoff = now.getTime() - (30 * 24 * 60 * 60 * 1000);
-    var lastRow = sheet.getLastRow();
-    if (lastRow >= 2) {
-      var dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      for (var i = dates.length - 1; i >= 0; i--) {
-        var cellDate = dates[i][0];
-        var t = (cellDate instanceof Date) ? cellDate.getTime() : new Date(cellDate).getTime();
-        if (!isNaN(t) && t < cutoff) {
-          sheet.deleteRow(i + 2);
-        }
-      }
+    // 2. Tab ThongKeTuan: Moi tuan 1 hang rieng
+    var statSheet = doc.getSheetByName('ThongKeTuan') || doc.insertSheet('ThongKeTuan');
+    statSheet.clear();
+    var statRows = [['Mã tuần', 'Số hiệp xong', 'Phút học']];
+    var wData = data.weeklyFocusData || {};
+    var wKeys = Object.keys(wData);
+    for (var j = 0; j < wKeys.length; j++) {
+      var k = wKeys[j];
+      statRows.push([k, wData[k].cycles || 0, wData[k].minutes || 0]);
     }
+    statSheet.getRange(1, 1, statRows.length, 3).setValues(statRows);
+    statSheet.setFrozenRows(1);
+
+    // 3. Tab CaiDat: Moi thiet lap 1 hang rieng (tranh don vao 1 o bi tran)
+    var cfgSheet = doc.getSheetByName('CaiDat') || doc.insertSheet('CaiDat');
+    cfgSheet.clear();
+    var cfgRows = [
+      ['Thiết lập', 'Giá trị'],
+      ['timerSettings', JSON.stringify(data.timerSettings || {})],
+      ['timerStats', JSON.stringify(data.timerStats || {})],
+      ['soundSettings', JSON.stringify(data.soundSettings || {})],
+      ['isAutoRepeatEnabled', String(!!data.isAutoRepeatEnabled)],
+      ['isLongBreakAutoEnabled', String(data.isLongBreakAutoEnabled !== false)],
+      ['consecutiveFocusCount', String(data.consecutiveFocusCount || 0)],
+      ['theme', String(data.theme || 'onyx')],
+      ['savedMode', String(data.savedMode || 'focus')],
+      ['savedTimerProgress', JSON.stringify(data.savedTimerProgress || {})],
+      ['modeCache', JSON.stringify(data.modeCache || {})],
+      ['lastUpdated', String(data.lastUpdated || Date.now())]
+    ];
+    cfgSheet.getRange(1, 1, cfgRows.length, 2).setValues(cfgRows);
+    cfgSheet.setFrozenRows(1);
 
     return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
       .setMimeType(ContentService.MimeType.JSON);
@@ -2742,23 +2882,72 @@ function doGet(e) {
 function doGet(e) {
   try {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = doc.getSheetByName('StudyFlow');
-    if (!sheet || sheet.getLastRow() === 0) {
-      return ContentService.createTextOutput("{}")
-        .setMimeType(ContentService.MimeType.JSON);
+    var taskSheet = doc.getSheetByName('MucTieu');
+    var statSheet = doc.getSheetByName('ThongKeTuan');
+    var cfgSheet = doc.getSheetByName('CaiDat');
+
+    // Tuong thich nguoc neu truoc do tung luu o tab StudyFlow cu
+    if (!taskSheet && !cfgSheet) {
+      var oldSheet = doc.getSheetByName('StudyFlow');
+      if (oldSheet && oldSheet.getLastRow() > 0) {
+        var lastR = oldSheet.getLastRow();
+        var oldRaw = lastR === 1 ? oldSheet.getRange(1, 1).getValue() : oldSheet.getRange(lastR, 6).getValue();
+        if (oldRaw && String(oldRaw).trim().charAt(0) === '{') {
+          return ContentService.createTextOutput(String(oldRaw)).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+      return ContentService.createTextOutput("{}").setMimeType(ContentService.MimeType.JSON);
     }
 
-    var lastRow = sheet.getLastRow();
-    var raw = "{}";
-    if (lastRow === 1) {
-      var a1 = String(sheet.getRange(1, 1).getValue() || "");
-      raw = a1.charAt(0) === '{' ? a1 : "{}";
-    } else {
-      var cellVal = sheet.getRange(lastRow, 6).getValue();
-      raw = (cellVal && String(cellVal).trim() !== "") ? String(cellVal) : "{}";
+    var result = { tasks: [], weeklyFocusData: {} };
+
+    if (taskSheet && taskSheet.getLastRow() >= 2) {
+      var tVals = taskSheet.getRange(2, 1, taskSheet.getLastRow() - 1, 6).getValues();
+      for (var i = 0; i < tVals.length; i++) {
+        if (!tVals[i][0] && !tVals[i][3]) continue;
+        var subs = [];
+        try { subs = JSON.parse(tVals[i][5] || '[]'); } catch (ex) {}
+        result.tasks.push({
+          id: String(tVals[i][0]),
+          week: Number(tVals[i][1]) || 1,
+          day: String(tVals[i][2] || 't2'),
+          text: String(tVals[i][3] || ''),
+          completed: tVals[i][4] === 'Đã xong',
+          subtasks: subs
+        });
+      }
     }
 
-    return ContentService.createTextOutput(raw)
+    if (statSheet && statSheet.getLastRow() >= 2) {
+      var sVals = statSheet.getRange(2, 1, statSheet.getLastRow() - 1, 3).getValues();
+      for (var j = 0; j < sVals.length; j++) {
+        if (!sVals[j][0]) continue;
+        result.weeklyFocusData[String(sVals[j][0])] = {
+          cycles: Number(sVals[j][1]) || 0,
+          minutes: Number(sVals[j][2]) || 0
+        };
+      }
+    }
+
+    if (cfgSheet && cfgSheet.getLastRow() >= 2) {
+      var cVals = cfgSheet.getRange(2, 1, cfgSheet.getLastRow() - 1, 2).getValues();
+      for (var k = 0; k < cVals.length; k++) {
+        var key = String(cVals[k][0] || '');
+        var val = String(cVals[k][1] || '');
+        if (!key) continue;
+        if (key === 'timerSettings' || key === 'timerStats' || key === 'soundSettings' || key === 'savedTimerProgress' || key === 'modeCache') {
+          try { result[key] = JSON.parse(val); } catch (ex) {}
+        } else if (key === 'isAutoRepeatEnabled' || key === 'isLongBreakAutoEnabled') {
+          result[key] = (val === 'true');
+        } else if (key === 'consecutiveFocusCount' || key === 'lastUpdated') {
+          result[key] = Number(val) || 0;
+        } else {
+          result[key] = val;
+        }
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({error: err.toString()}))
