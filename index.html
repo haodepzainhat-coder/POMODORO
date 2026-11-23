@@ -918,7 +918,7 @@ function doGet(e) {
   <video id="pip-video" muted playsinline class="hidden"></video>
 
   <!-- TOAST NOTIFICATION CONTAINER (THAY THẾ HOÀN TOÀN ALERT) -->
-  <div id="toast-notification" class="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-[var(--app-card)] border border-[var(--app-border)] text-xs font-bold text-[var(--app-text)] shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-4">
+  <div id="toast-notification" class="fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-[var(--app-card)] border border-[var(--app-border)] text-xs font-bold text-[var(--app-text)] shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-4">
     <i id="toast-icon" data-lucide="info" class="w-4 h-4 text-emerald-400"></i>
     <span id="toast-message">Thông báo</span>
   </div>
@@ -2511,7 +2511,6 @@ function doGet(e) {
       try {
         const res = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
           method: 'POST',
-          cache: 'no-cache',
           redirect: 'follow',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
@@ -2556,9 +2555,9 @@ function doGet(e) {
       if (!GOOGLE_SHEET_WEBAPP_URL || !GOOGLE_SHEET_WEBAPP_URL.startsWith('http')) return 'no_url';
       try {
         setSyncStatus(true, true);
-        const res = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+        const sep = GOOGLE_SHEET_WEBAPP_URL.includes('?') ? '&' : '?';
+        const res = await fetch(`${GOOGLE_SHEET_WEBAPP_URL}${sep}t=${Date.now()}`, {
           method: 'GET',
-          cache: 'no-cache',
           redirect: 'follow'
         });
         if (!res.ok) throw new Error("Network response not ok");
@@ -2602,7 +2601,10 @@ function doGet(e) {
                 modeCache.short = { timeLeft: timerSettings.shortBreakTime * 60, totalTime: timerSettings.shortBreakTime * 60, isRunning: false };
                 modeCache.long = { timeLeft: timerSettings.longBreakTime * 60, totalTime: timerSettings.longBreakTime * 60, isRunning: false };
                 if (timerState.timeLeft === timerState.totalTime) {
-                  setTimerMode(timerState.mode, true);
+                  timerState.timeLeft = modeCache[timerState.mode].timeLeft;
+                  timerState.totalTime = modeCache[timerState.mode].totalTime;
+                  updateTimerUI();
+                  updateTimerModeButtons();
                 }
               }
             }
@@ -2746,7 +2748,7 @@ function doGet(e) {
     async function saveAndConnectSheet() {
       const input = document.getElementById('script-url-input');
       const url = input ? input.value.trim() : '';
-      if (!url || !url.startsWith('https://script.google.com/') || !url.endsWith('/exec')) {
+      if (!url || !url.startsWith('https://script.google.com/') || !url.includes('/exec')) {
         showToast('Link chưa đúng! Hãy dán link Web App có dạng https://script.google.com/macros/s/.../exec', 'error');
         return;
       }
@@ -2773,7 +2775,7 @@ function doGet(e) {
     async function downloadFromSheetManual() {
       const input = document.getElementById('script-url-input');
       const url = input ? input.value.trim() : GOOGLE_SHEET_WEBAPP_URL;
-      if (!url || !url.startsWith('https://script.google.com/') || !url.endsWith('/exec')) {
+      if (!url || !url.startsWith('https://script.google.com/') || !url.includes('/exec')) {
         showToast('Hãy dán link Web App (/exec) hợp lệ trước khi tải!', 'error');
         return;
       }
@@ -2791,7 +2793,7 @@ function doGet(e) {
     async function uploadToSheetManual() {
       const input = document.getElementById('script-url-input');
       const url = input ? input.value.trim() : GOOGLE_SHEET_WEBAPP_URL;
-      if (!url || !url.startsWith('https://script.google.com/') || !url.endsWith('/exec')) {
+      if (!url || !url.startsWith('https://script.google.com/') || !url.includes('/exec')) {
         showToast('Hãy dán link Web App (/exec) hợp lệ trước khi đẩy dữ liệu!', 'error');
         return;
       }
